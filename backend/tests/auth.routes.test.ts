@@ -2,6 +2,7 @@ import request from 'supertest';
 import { app } from '../src/app';
 import { authService, UserResponse } from '../src/services/auth.service';
 import { createAccessToken } from '../src/utils/token';
+import { AppError, Unauthorized, Forbidden } from '../src/utils/errors';
 
 function extractCookies(res: request.Response): string[] {
   const header = res.headers['set-cookie'];
@@ -54,6 +55,49 @@ describe('Auth HTTP Routes & Cookie Suite', () => {
       expect(accessCookie).toContain('mock-access-token-jwt');
       expect(refreshCookie).toContain('mock-refresh-token-hex');
     });
+
+    it('should reject registration with invalid email', async () => {
+      const res = await request(app).post('/api/auth/register').send({
+        email: 'not-an-email',
+        password: 'Password123!',
+        fullName: 'Invalid Email Farmer',
+        role: 'farmer',
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(JSON.stringify(res.body.error.details)).toContain('Invalid email');
+    });
+
+    it('should reject registration with short password (< 8 characters)', async () => {
+      const res = await request(app).post('/api/auth/register').send({
+        email: 'shortpass@goviya.lk',
+        password: '123',
+        fullName: 'Short Password Farmer',
+        role: 'farmer',
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(JSON.stringify(res.body.error.details)).toContain('at least 8 characters');
+    });
+
+    it('should reject registration if email already exists (duplicate email)', async () => {
+      jest.spyOn(authService, 'register').mockRejectedValueOnce(
+        new AppError(409, 'CONFLICT', 'An account with this email already exists'),
+      );
+
+      const res = await request(app).post('/api/auth/register').send({
+        email: 'farmer.route@goviya.lk',
+        password: 'Password123!',
+        fullName: 'Duplicate Farmer',
+        role: 'farmer',
+      });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error.code).toBe('CONFLICT');
+      expect(res.body.error.message).toContain('already exists');
+    });
   });
 
   describe('POST /api/auth/login', () => {
@@ -76,6 +120,39 @@ describe('Auth HTTP Routes & Cookie Suite', () => {
       expect(cookies.some((c) => c.includes('accessToken=login-access-token'))).toBe(true);
       expect(cookies.some((c) => c.includes('refreshToken=login-refresh-token'))).toBe(true);
     });
+
+    it('should return generic error message on invalid password to prevent user enumeration', async () => {
+      jest.spyOn(authService, 'login').mockRejectedValueOnce(
+        new Unauthorized('Invalid email or password', 'INVALID_CREDENTIALS'),
+      );
+
+      const res = await request(app).post('/api/auth/login').send({
+        email: 'farmer.route@goviya.lk',
+        password: 'WrongPassword!',
+      });
+
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('INVALID_CREDENTIALS');
+      expect(res.body.error.message).toBe('Invalid email or password');
+    });
+
+    it('should return lockout error after repeated failed login attempts', async () => {
+      jest.spyOn(authService, 'login').mockRejectedValueOnce(
+        new Forbidden(
+          'Account is temporarily locked due to repeated failed login attempts. Please try again in 15 minutes.',
+          'ACCOUNT_LOCKED',
+        ),
+      );
+
+      const res = await request(app).post('/api/auth/login').send({
+        email: 'farmer.route@goviya.lk',
+        password: 'Password123!',
+      });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('ACCOUNT_LOCKED');
+      expect(res.body.error.message).toContain('locked');
+    });
   });
 
   describe('POST /api/auth/refresh', () => {
@@ -94,6 +171,20 @@ describe('Auth HTTP Routes & Cookie Suite', () => {
       const cookies = extractCookies(res);
       expect(cookies.some((c) => c.includes('accessToken=rotated-access-token'))).toBe(true);
       expect(cookies.some((c) => c.includes('refreshToken=rotated-refresh-token'))).toBe(true);
+    });
+
+    it('should reject reused or already-revoked refresh token', async () => {
+      jest.spyOn(authService, 'refresh').mockRejectedValueOnce(
+        new Unauthorized('Refresh token has expired or been revoked', 'INVALID_REFRESH_TOKEN'),
+      );
+
+      const res = await request(app)
+        .post('/api/auth/refresh')
+        .set('Cookie', ['refreshToken=reused-old-token']);
+
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('INVALID_REFRESH_TOKEN');
+      expect(res.body.error.message).toContain('revoked');
     });
   });
 
