@@ -158,23 +158,46 @@ export const farmService = {
   },
 
   // --- Photos ---
-  async getPlotPhotos(plotId: string): Promise<PaginatedResponse<Photo>> {
-    const res = await api.get<PaginatedResponse<Photo>>(`/plots/${plotId}/photos`);
+  async getPlotPhotos(plotId: string, params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Photo>> {
+    const res = await api.get<PaginatedResponse<Photo>>(`/plots/${plotId}/photos`, { params });
     return res.data;
   },
 
-  async uploadPlotPhoto(plotId: string, file: File, caption?: string): Promise<Photo> {
+  async uploadPlotPhoto(
+    plotId: string,
+    file: File,
+    caption?: string,
+    options?: {
+      onProgress?: (percent: number) => void;
+      signal?: AbortSignal;
+    }
+  ): Promise<Photo> {
     const formData = new FormData();
     formData.append('photo', file);
-    if (caption) {
-      formData.append('caption', caption);
+    if (caption && caption.trim()) {
+      formData.append('caption', caption.trim());
     }
-    const res = await api.post<{ photo: Photo }>(`/plots/${plotId}/photos`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return res.data.photo;
+    const res = await api.post<{ message?: string; data?: Photo; photo?: Photo }>(
+      `/plots/${plotId}/photos`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        signal: options?.signal,
+        onUploadProgress: (progressEvent) => {
+          if (options?.onProgress && progressEvent.total) {
+            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            options.onProgress(percent);
+          }
+        },
+      }
+    );
+    const photo = res.data.data || res.data.photo;
+    if (!photo) {
+      throw new Error('Server returned an empty photo response.');
+    }
+    return photo;
   },
 
   // --- Advisory Notes ---

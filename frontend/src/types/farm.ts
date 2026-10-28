@@ -102,10 +102,18 @@ export interface AdvisoryNote {
 export interface Photo {
   id: string;
   plotId: string;
-  filename: string;
+  uploaderId?: string;
+  filename?: string;
+  originalName?: string;
+  mimeType?: string;
+  fileSize?: number;
+  width?: number | null;
+  height?: number | null;
   caption?: string | null;
   capturedAt?: string;
   createdAt: string;
+  url?: string;
+  thumbnailUrl?: string;
 }
 
 export interface CurrentWeather {
@@ -197,3 +205,4 @@ export interface CreateHarvestInput {
   revenue?: number | null;
   notes?: string | null;
 }
+

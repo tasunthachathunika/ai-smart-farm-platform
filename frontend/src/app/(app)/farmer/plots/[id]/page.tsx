@@ -45,7 +45,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Table } from '@/components/ui/Table';
-import { PhotoUploader } from '@/components/ui/PhotoUploader';
+import { PhotoManager } from '@/components/farmer/PhotoManager';
 
 type TabKey = 'overview' | 'logs' | 'inputs' | 'harvests' | 'photos' | 'officer-notes';
 
@@ -117,9 +117,6 @@ function PlotDetailContent() {
   const [harvestGrade, setHarvestGrade] = useState('Grade A (Standard Moisture)');
   const [harvestRevenue, setHarvestRevenue] = useState('');
   const [harvestNotes, setHarvestNotes] = useState('');
-
-  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
-  const [photoCaption, setPhotoCaption] = useState('');
 
   const [modalSubmitting, setModalSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -832,53 +829,13 @@ function PlotDetailContent() {
           TAB 5: PHOTOS
       ======================================================== */}
       {activeTab === 'photos' && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-bold text-ink-900">Crop Inspection Photos</h2>
-              <p className="text-xs text-ink-600">Sanitized images (&le;1MB, EXIF stripped, JPEG/PNG/WebP verified).</p>
-            </div>
-            <Button
-              variant="primary"
-              onClick={() => setIsPhotoModalOpen(true)}
-              leftIcon={<Plus className="w-4 h-4" />}
-            >
-              Upload Inspection Photo
-            </Button>
-          </div>
-
-          {photos.length === 0 ? (
-            <Card className="p-8">
-              <EmptyState
-                icon={Camera}
-                title="No Photos Uploaded"
-                description="Upload field photos to document leaf condition, tiller density, or water level."
-                action={{
-                  label: 'Upload First Photo',
-                  onClick: () => setIsPhotoModalOpen(true),
-                }}
-              />
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {photos.map((p) => (
-                <Card key={p.id} className="p-3 overflow-hidden">
-                  <div className="aspect-video w-full rounded-card overflow-hidden bg-sand-200 mb-2 relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`/api/plots/${plotId}/photos/${p.id}/file`}
-                      alt={p.caption || 'Field inspection'}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  </div>
-                  <p className="text-xs font-bold text-ink-900 truncate">{p.caption || 'Inspection Photo'}</p>
-                  <p className="text-[11px] text-ink-600">{new Date(p.createdAt).toLocaleDateString()}</p>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
+        <PhotoManager
+          plotId={plotId}
+          isPlotShared={plot.isShared}
+          onPhotoUploaded={() => {
+            farmService.getPlotPhotos(plotId).then((res) => setPhotos(res.data || []));
+          }}
+        />
       )}
 
       {/* ========================================================
@@ -1194,42 +1151,6 @@ function PlotDetailContent() {
             </Button>
           </div>
         </form>
-      </Modal>
-
-      {/* ========================================================
-          MODAL: UPLOAD INSPECTION PHOTO
-      ======================================================== */}
-      <Modal
-        isOpen={isPhotoModalOpen}
-        onClose={() => setIsPhotoModalOpen(false)}
-        title="Upload Inspection Photo"
-        description="Images are sanitized to remove GPS EXIF metadata. Max 1280px, &le;1MB."
-      >
-        <div className="space-y-4 py-2">
-          <Input
-            label="Photo Caption / Description"
-            value={photoCaption}
-            onChange={(e) => setPhotoCaption(e.target.value)}
-            placeholder="e.g. Tillering density in Block A"
-          />
-
-          <PhotoUploader
-            onUpload={async (file) => {
-              await farmService.uploadPlotPhoto(plotId, file, photoCaption.trim() || undefined);
-              setIsPhotoModalOpen(false);
-              setPhotoCaption('');
-              setSuccessToast('Photo uploaded and sanitized successfully.');
-              const res = await farmService.getPlotPhotos(plotId);
-              setPhotos(res.data || []);
-            }}
-          />
-
-          <div className="flex justify-end pt-2">
-            <Button variant="ghost" onClick={() => setIsPhotoModalOpen(false)}>
-              Close
-            </Button>
-          </div>
-        </div>
       </Modal>
     </div>
   );
