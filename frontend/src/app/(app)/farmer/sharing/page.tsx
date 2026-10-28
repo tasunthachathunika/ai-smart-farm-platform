@@ -1,52 +1,56 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Share2, Plus, ShieldCheck } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { ConsentToggle } from '@/components/ui/ConsentToggle';
+import React from 'react';
+import { Lock, EyeOff, FileText } from 'lucide-react';
+import { ActiveSharesManager } from '@/components/farmer/ActiveSharesManager';
 
 export default function FarmerSharingPage() {
-  const [allowGlobalShare, setAllowGlobalShare] = useState(true);
-
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-ink-900">Officer Record Sharing</h1>
-          <p className="text-sm text-ink-600 mt-1">
-            Grant temporary, revocable access to certified agricultural extension officers.
-          </p>
-        </div>
-        <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />}>
-          Grant New Officer Share
-        </Button>
+      {/* Page Title & Context */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-ink-900">Officer Record Sharing</h1>
+        <p className="text-sm text-ink-600 mt-1 max-w-2xl">
+          Grant temporary, revocable access to certified agricultural extension officers.
+          You retain full ownership of your data and can stop sharing at any moment.
+        </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Share2 className="w-5 h-5 text-green-700" />
-            <CardTitle>Active Officer Shares</CardTitle>
+      {/* Privacy & Security Guarantees Banner */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-sand-100/70 border border-sand-200 rounded-card text-xs text-ink-900">
+        <div className="flex items-start gap-2.5">
+          <EyeOff className="w-4 h-4 text-green-700 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold text-ink-900">GPS Privacy Protected</p>
+            <p className="text-ink-600 text-[11px] mt-0.5 leading-normal">
+              Officers only see your district. Exact GPS coordinates are never disclosed.
+            </p>
           </div>
-          <CardDescription>
-            Officers only receive blurred district-level locations. Revocation takes effect on their very next request.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <ConsentToggle
-            title="Active Share with Extension Officer: K. Bandara"
-            helperText="Officer is verified by the Department of Agriculture. Scope: View crop logs & leave advisory notes."
-            checked={allowGlobalShare}
-            onChange={setAllowGlobalShare}
-          />
+        </div>
 
-          <div className="flex items-center gap-2 text-xs text-ink-600 pt-2">
-            <ShieldCheck className="w-4 h-4 text-green-700" />
-            <span>All share grants, revocations, and officer views are logged atomically in your audit journal.</span>
+        <div className="flex items-start gap-2.5">
+          <Lock className="w-4 h-4 text-green-700 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold text-ink-900">Instant Revocation</p>
+            <p className="text-ink-600 text-[11px] mt-0.5 leading-normal">
+              Revoking a share cuts access immediately on the officer&apos;s very next request.
+            </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        <div className="flex items-start gap-2.5">
+          <FileText className="w-4 h-4 text-green-700 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold text-ink-900">Immutable Audit Trail</p>
+            <p className="text-ink-600 text-[11px] mt-0.5 leading-normal">
+              Every officer view and share action is permanently recorded in your audit log.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Active Shares Manager */}
+      <ActiveSharesManager />
     </div>
   );
 }
