@@ -23,9 +23,11 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { Alert } from '@/components/ui/Alert';
 import { TimelineItem } from '@/components/ui/TimelineItem';
 import { WeatherWidget } from '@/components/farmer/WeatherWidget';
+import { useI18n } from '@/i18n';
 
 export default function FarmerDashboard() {
   const { user } = useAuthStore();
+  const { t } = useI18n();
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +98,7 @@ export default function FarmerDashboard() {
             {todayFormatted}
           </span>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-ink-900 mt-0.5">
-            Ayubowan, {user?.fullName || 'Farmer'}!
+            {t('dashboard.welcome', { name: user?.fullName || 'Farmer' })}
           </h1>
           <p className="text-sm text-ink-600 mt-1">
             Review your plot conditions, recorded activities, and district telemetry.
@@ -106,7 +108,7 @@ export default function FarmerDashboard() {
         <div className="flex items-center gap-2">
           <Link href="/farmer/plots">
             <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />}>
-              Add Plot
+              {t('dashboard.newPlotButton')}
             </Button>
           </Link>
         </div>
@@ -280,9 +282,9 @@ export default function FarmerDashboard() {
       {!isLoading && plots.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-ink-900">Registered Plots ({plots.length})</h2>
+            <h2 className="text-lg font-bold text-ink-900">{t('dashboard.registeredPlots')} ({plots.length})</h2>
             <Link href="/farmer/plots" className="text-xs font-bold text-green-700 hover:text-green-800 flex items-center gap-1">
-              <span>View all plots</span>
+              <span>{t('common.viewAll')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -306,12 +308,12 @@ export default function FarmerDashboard() {
                       </div>
 
                       <p className="text-xs text-ink-600 mb-3">
-                        District: <strong>{plot.district}</strong> • {plot.areaHa} ha
+                        {t('dashboard.district')}: <strong>{plot.district}</strong> • {plot.areaHa} ha
                       </p>
 
                       <div className="p-2.5 rounded bg-sand-50 border border-sand-200/80 text-xs text-ink-900 space-y-1">
                         <div className="flex justify-between">
-                          <span className="text-ink-600">Active Crop:</span>
+                          <span className="text-ink-600">{t('dashboard.activeCrop')}:</span>
                           <span className="font-bold">{activeCycle?.cropName || plot.activeCrop || 'None active'}</span>
                         </div>
                         {activeCycle?.status && (
@@ -348,7 +350,7 @@ export default function FarmerDashboard() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-green-700" />
-                <CardTitle className="text-base sm:text-lg">Recent Field Activity Timeline</CardTitle>
+                <CardTitle className="text-base sm:text-lg">{t('dashboard.recentActivities')}</CardTitle>
               </div>
             </div>
             <CardDescription>Latest observations recorded across your active cycles.</CardDescription>

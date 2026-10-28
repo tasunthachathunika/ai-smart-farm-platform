@@ -21,6 +21,8 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Modal } from '@/components/ui/Modal';
+import { LanguageSwitcher } from '@/components/shell/LanguageSwitcher';
+import { useI18n } from '@/i18n';
 
 function calculatePasswordStrength(pwd: string): {
   score: number;
@@ -48,6 +50,7 @@ function calculatePasswordStrength(pwd: string): {
 export default function RegisterPage() {
   const router = useRouter();
   const { register, isLoading } = useAuthStore();
+  const { t } = useI18n();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -117,21 +120,24 @@ export default function RegisterPage() {
   return (
     <main className="min-h-screen bg-sand-50 text-ink-900 flex flex-col justify-center items-center px-4 py-8">
       <div className="w-full max-w-lg space-y-6">
+        {/* Top bar with language switcher */}
+        <div className="flex justify-end">
+          <LanguageSwitcher />
+        </div>
+
         {/* Brand Header */}
         <div className="text-center space-y-1">
           <Link href="/" className="inline-flex items-center gap-2 text-3xl font-extrabold text-green-700">
             <span aria-hidden="true">🌾</span>
-            <span>Goviya Plus</span>
+            <span>{t('common.appName')}</span>
           </Link>
-          <p className="text-sm text-ink-600">Keep your farm records. Stay in control.</p>
+          <p className="text-sm text-ink-600">{t('common.tagline')}</p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl">Create Account</CardTitle>
-            <CardDescription>
-              Register your farm to record crop cycles or join as an agricultural extension officer.
-            </CardDescription>
+            <CardTitle className="text-xl">{t('auth.register')}</CardTitle>
+            <CardDescription>{t('auth.registerSubtitle')}</CardDescription>
           </CardHeader>
           <CardContent>
             {formError && (
@@ -145,13 +151,13 @@ export default function RegisterPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Role Choice (Farmer / Officer) */}
               <Select
-                label="Select Account Type"
+                label={t('auth.role')}
                 required
                 value={role}
                 onChange={(e) => setRole(e.target.value as UserRole)}
                 options={[
-                  { value: 'farmer', label: 'Farmer (Manage Plots & Crop Cycles)' },
-                  { value: 'officer', label: 'Agricultural Extension Officer' },
+                  { value: 'farmer', label: t('auth.farmerRole') },
+                  { value: 'officer', label: t('auth.officerRole') },
                 ]}
               />
 
@@ -170,7 +176,7 @@ export default function RegisterPage() {
 
               {/* Full Name */}
               <Input
-                label="Full Name"
+                label={t('auth.fullName')}
                 type="text"
                 required
                 value={fullName}
@@ -181,7 +187,7 @@ export default function RegisterPage() {
 
               {/* Email Address */}
               <Input
-                label="Email Address"
+                label={t('auth.email')}
                 type="email"
                 autoComplete="email"
                 required
@@ -193,7 +199,7 @@ export default function RegisterPage() {
 
               {/* Phone (Optional) */}
               <Input
-                label="Phone Number (Optional)"
+                label={`${t('auth.phone')} (Optional)`}
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -204,7 +210,7 @@ export default function RegisterPage() {
               {/* Password with Visibility Toggle & Strength Meter */}
               <div className="flex flex-col gap-1.5 w-full">
                 <label htmlFor="reg-password" className="text-sm font-semibold text-ink-900">
-                  Password <span className="text-status-danger" aria-hidden="true">*</span>
+                  {t('auth.password')} <span className="text-status-danger" aria-hidden="true">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -283,14 +289,13 @@ export default function RegisterPage() {
                 className="w-full mt-2 font-bold"
                 leftIcon={<UserPlus className="w-4 h-4" />}
               >
-                Complete Registration
+                {t('auth.register')}
               </Button>
             </form>
 
             <div className="mt-6 pt-4 border-t border-sand-200 text-center text-sm text-ink-600">
-              Already have an account?{' '}
               <Link href="/login" className="font-bold text-green-700 hover:text-green-800 underline">
-                Sign in
+                {t('auth.alreadyHaveAccount')}
               </Link>
             </div>
           </CardContent>

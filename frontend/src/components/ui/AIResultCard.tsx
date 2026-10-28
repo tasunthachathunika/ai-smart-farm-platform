@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from './Badge';
 import { Modal } from './Modal';
 import { Button } from './Button';
+import { useI18n } from '@/i18n';
 
 export interface SourceRecord {
   id: string;
@@ -67,6 +68,7 @@ export const AIResultCard: React.FC<AIResultCardProps> = ({
 }) => {
   const [selectedSource, setSelectedSource] = useState<SourceRecord | null>(null);
   const [copied, setCopied] = useState(false);
+  const { t } = useI18n();
 
   // Unify primary summary/overview text
   const mainOverviewText = overview || summary || '';
@@ -202,7 +204,7 @@ export const AIResultCard: React.FC<AIResultCardProps> = ({
         >
           <Info className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" aria-hidden="true" />
           <p className="leading-relaxed">
-            <strong>AI is unavailable right now.</strong> Displaying an automated summary synthesized directly from your verified crop cycles, activity logs, inputs, and harvests.
+            <strong>{t('ai.fallbackNotice')}</strong> Displaying an automated summary synthesized directly from your verified crop cycles, activity logs, inputs, and harvests.
           </p>
         </div>
       )}
@@ -215,9 +217,7 @@ export const AIResultCard: React.FC<AIResultCardProps> = ({
       >
         <AlertTriangle className="w-5 h-5 text-gold-700 shrink-0 mt-0.5" aria-hidden="true" />
         <p className="leading-relaxed">
-          <strong>AI-generated information.</strong> Not a pesticide or fertilizer prescription,
-          dosage recommendation, or confirmed crop-disease diagnosis. Please review all items with
-          your agricultural extension officer.
+          <strong>{t('ai.disclaimerTitle')}:</strong> {t('ai.disclaimerNotice')}
         </p>
       </div>
 

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Noto_Sans, Noto_Sans_Sinhala, Noto_Sans_Tamil } from 'next/font/google';
+import { I18nProvider } from '@/i18n';
 import './globals.css';
 
 const notoSans = Noto_Sans({
@@ -46,7 +47,7 @@ export default function RootLayout({
       className={`${notoSans.variable} ${notoSansSinhala.variable} ${notoSansTamil.variable}`}
     >
       <body className="min-h-screen bg-sand-50 text-ink-900 font-sans antialiased">
-        {children}
+        <I18nProvider>{children}</I18nProvider>
       </body>
     </html>
   );

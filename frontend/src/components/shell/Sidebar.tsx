@@ -16,10 +16,12 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { navItemsByRole } from './navConfig';
 import { Badge } from '@/components/ui/Badge';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { useI18n } from '@/i18n';
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
+  const { t } = useI18n();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   if (!user) return null;
@@ -53,9 +55,9 @@ export const Sidebar: React.FC = () => {
             </span>
             <div className="flex flex-col">
               <span className="font-extrabold text-base text-green-700 tracking-tight leading-tight">
-                Goviya Plus
+                {t('common.appName')}
               </span>
-              <span className="text-[10px] text-ink-600 font-medium">Smart Farm Platform</span>
+              <span className="text-[10px] text-ink-600 font-medium">{t('common.tagline')}</span>
             </div>
           </Link>
         )}
@@ -84,7 +86,7 @@ export const Sidebar: React.FC = () => {
         </button>
       </div>
 
-      {/* Language Switcher Stub */}
+      {/* Language Switcher */}
       {!isCollapsed && (
         <div className="px-4 py-2 border-b border-sand-200 bg-sand-50/50 flex justify-center">
           <LanguageSwitcher />
@@ -98,6 +100,7 @@ export const Sidebar: React.FC = () => {
           const isActive =
             pathname === item.href ||
             (item.href !== `/${user.role}` && pathname.startsWith(item.href));
+          const translatedLabel = item.i18nKey ? t(item.i18nKey) : item.label;
 
           return (
             <Link
@@ -110,7 +113,7 @@ export const Sidebar: React.FC = () => {
                   ? 'bg-green-100 text-green-800 border-l-4 border-green-600 shadow-sm'
                   : 'text-ink-600 hover:text-ink-900 hover:bg-sand-100'
               )}
-              title={isCollapsed ? item.label : undefined}
+              title={isCollapsed ? translatedLabel : undefined}
             >
               <Icon
                 className={cn(
@@ -119,7 +122,7 @@ export const Sidebar: React.FC = () => {
                 )}
                 aria-hidden="true"
               />
-              {!isCollapsed && <span className="truncate">{item.label}</span>}
+              {!isCollapsed && <span className="truncate">{translatedLabel}</span>}
             </Link>
           );
         })}
@@ -156,11 +159,11 @@ export const Sidebar: React.FC = () => {
             'flex items-center gap-2.5 px-3 py-2.5 rounded-card text-sm font-semibold text-status-danger hover:bg-status-danger-bg transition-colors min-h-touch focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger',
             isCollapsed && 'justify-center'
           )}
-          title="Sign out"
-          aria-label="Sign out of Goviya Plus"
+          title={t('common.signOut')}
+          aria-label={t('common.signOut')}
         >
           <LogOut className="w-5 h-5 shrink-0" aria-hidden="true" />
-          {!isCollapsed && <span>Sign Out</span>}
+          {!isCollapsed && <span>{t('common.signOut')}</span>}
         </button>
       </div>
     </aside>
