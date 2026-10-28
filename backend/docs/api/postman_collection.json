@@ -1,0 +1,766 @@
+{
+  "info": {
+    "_postman_id": "d9b7f5e1-8a4c-4e63-9d2a-1b5e8c7a9f02",
+    "name": "Goviya Plus API Collection",
+    "description": "Postman Collection for Goviya Plus API with full flow requests: Auth, Fields & Plots, Crop Cycles, Activity Logs, Inputs, Harvests, Photos, Weather, Sharing, Audit, Officer, Advisory Notes, AI, Admin, and Health.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "plotId",
+      "value": "b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d",
+      "type": "string"
+    },
+    {
+      "key": "fieldId",
+      "value": "a1b2c3d4-e5f6-47a8-9b0c-1d2e3f4a5b6c",
+      "type": "string"
+    },
+    {
+      "key": "cycleId",
+      "value": "c3d4e5f6-a7b8-49c0-1d2e-3f4a5b6c7d8e",
+      "type": "string"
+    },
+    {
+      "key": "shareId",
+      "value": "18b9c0d1-e2f3-44a5-6b7c-8d9e0f1a2b3c",
+      "type": "string"
+    },
+    {
+      "key": "officerId",
+      "value": "33333333-3333-4333-8333-333333333333",
+      "type": "string"
+    },
+    {
+      "key": "csrfToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health Check",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "health"
+          ]
+        },
+        "description": "Verify system uptime and database connectivity."
+      }
+    },
+    {
+      "name": "2. Auth Flow",
+      "item": [
+        {
+          "name": "Get CSRF Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "if (response && response.csrfToken) {",
+                  "  pm.collectionVariables.set(\"csrfToken\", response.csrfToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/csrf-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "csrf-token"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Register Farmer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"farmer.kamal@goviya.lk\",\n  \"password\": \"SecureFarmPass123!\",\n  \"fullName\": \"Kamal Bandara\",\n  \"phone\": \"+94771234567\",\n  \"role\": \"farmer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login Farmer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"farmer.kamal@goviya.lk\",\n  \"password\": \"SecureFarmPass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Current User (Me)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Rotate Refresh Token",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Fields & Plots",
+      "item": [
+        {
+          "name": "Create Field",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Maha Wewa Paddy Fields\",\n  \"district\": \"Anuradhapura\",\n  \"description\": \"Main irrigated paddy fields\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/fields",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fields"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Fields",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/fields?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fields"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Plot (with AES-256-GCM encrypted GPS)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sector 5 Rice Basin\",\n  \"district\": \"Anuradhapura\",\n  \"areaHa\": 2.5,\n  \"gps\": {\n    \"latitude\": 8.3114,\n    \"longitude\": 80.4037\n  },\n  \"soilType\": \"Clay Loam\",\n  \"irrigationSource\": \"Major Tank Irrigation\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/plots",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "plots"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Plots (Exact GPS for owner, blurred for officer)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/plots?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "plots"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Plot by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/plots/{{plotId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "plots",
+                "{{plotId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Crop Cycles & Farm Operations",
+      "item": [
+        {
+          "name": "Create Crop Cycle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plotId\": \"{{plotId}}\",\n  \"cropName\": \"Paddy Samba\",\n  \"variety\": \"BG 352\",\n  \"startDate\": \"2026-05-01\",\n  \"endDate\": \"2026-08-30\",\n  \"status\": \"active\",\n  \"estimatedYieldKg\": 4500\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/crop-cycles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "crop-cycles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Activity Log",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cycleId\": \"{{cycleId}}\",\n  \"logType\": \"irrigation\",\n  \"logDate\": \"2026-05-10\",\n  \"notes\": \"Canal sluice gates opened; flooded field to 5cm depth.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/activity-logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "activity-logs"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Record Input Application",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cycleId\": \"{{cycleId}}\",\n  \"inputType\": \"fertilizer\",\n  \"name\": \"Compost Soil Conditioner\",\n  \"quantity\": 50,\n  \"unit\": \"kg\",\n  \"applicationDate\": \"2026-05-12\",\n  \"cost\": 4500\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/input-applications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "input-applications"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Record Harvest",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cycleId\": \"{{cycleId}}\",\n  \"harvestDate\": \"2026-08-25\",\n  \"quantity\": 4200,\n  \"unit\": \"kg\",\n  \"qualityGrade\": \"Grade A\",\n  \"revenue\": 840000,\n  \"notes\": \"Bumper harvest with excellent grain moisture.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/harvests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "harvests"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Photos & Weather",
+      "item": [
+        {
+          "name": "List Plot Photos",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/plots/{{plotId}}/photos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "plots",
+                "{{plotId}}",
+                "photos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Plot Weather (District Centroid)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/plots/{{plotId}}/weather",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "plots",
+                "{{plotId}}",
+                "weather"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Officer Collaboration & Sharing",
+      "item": [
+        {
+          "name": "Grant Share to Officer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"officerId\": \"{{officerId}}\",\n  \"plotIds\": [\n    \"{{plotId}}\"\n  ],\n  \"scope\": \"advisory\",\n  \"scopes\": [\n    \"crop_cycles\",\n    \"activity_logs\",\n    \"advisory_notes\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/shares",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "shares"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Officer Shared Plots (gps: null)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/officer/plots",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "officer",
+                "plots"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Officer Add Advisory Note",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Soil Aeration & Water Retention Advice\",\n  \"notes\": \"Observed slight surface crusting following heavy unseasonal rainfall. Recommend gentle harrow cultivation.\",\n  \"recommendations\": \"Maintain standing water at 2-3cm depth to suppress weed emergence.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/plots/{{plotId}}/advisory-notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "plots",
+                "{{plotId}}",
+                "advisory-notes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Farmer Revoke Share (Immediate 404 on next request)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/shares/{{shareId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "shares",
+                "{{shareId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Farmer View Audit Log",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/audit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "audit"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Responsible AI Advisory",
+      "item": [
+        {
+          "name": "AI Record Summary (Informational Only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plotId\": \"{{plotId}}\",\n  \"cycleId\": \"{{cycleId}}\",\n  \"userPrompt\": \"Summarize recent crop activities and suggest questions for my upcoming meeting with the agricultural extension officer.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "summary"
+              ]
+            }
+          }
+        },
+        {
+          "name": "AI Visit Prep Briefing (Informational Only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plotId\": \"{{plotId}}\",\n  \"cycleId\": \"{{cycleId}}\",\n  \"focusAreas\": [\n    \"Irrigation schedule\",\n    \"Compost application\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/visit-prep",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "visit-prep"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Admin Platform Management",
+      "item": [
+        {
+          "name": "List Users (Admin Privacy Boundary - Metadata Only)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Pending Extension Officers",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/officers/pending",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "officers",
+                "pending"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify Officer (Approve/Reject/Suspend)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\",\n  \"reason\": \"Verified credentials against Department of Agriculture registry.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/officers/{{officerId}}/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "officers",
+                "{{officerId}}",
+                "verify"
+              ]
+            }
+          }
+        },
+        {
+          "name": "View Admin Audit Metadata (No private record payloads)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/audit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "audit"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

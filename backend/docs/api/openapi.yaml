@@ -1,0 +1,4379 @@
+openapi: 3.0.3
+info:
+  title: Goviya Plus API
+  version: 1.0.0
+  description: >
+    ### Goviya Plus — AI Smart Farm Records & Crop Advisory Platform API
+
+    Official REST API specification for Goviya Plus, empowering Sri Lankan
+    smallholder farmers with secure farm record tracking, privacy-preserving
+    extension officer collaboration, and responsible AI-powered record
+    summarization.
+
+
+    ---
+
+    ### Key Architectural & Privacy Boundaries:
+
+    1. **Role-Based Authorization & Privacy Boundary:**
+       - **`farmer`**: Full read/write control over their own farm plots, fields, crop cycles, activity logs, inputs, harvests, and photos. Exact GPS coordinates (decrypted via AES-256-GCM) are exclusively delivered to the plot owner.
+       - **`officer`**: May access ONLY plots explicitly shared with them via `shared_plots` with active, non-expired, and non-revoked consent. Officers receive blurred district-level location (`gps: null`). Officers cannot create or mutate farm records—only author advisory notes. Revoked shares return immediate **404 Not Found**.
+       - **`admin`**: Limited strictly to account management and platform audit metadata. Admins are blocked (**403 Forbidden** / **404 Not Found**) from reading farm records or private agronomic payloads.
+    2. **Responsible AI Policy:**
+       - AI outputs are informational summaries and question-generators only.
+       - **AI NEVER** prescribes pesticide/fertilizer products or dosages, provides definitive disease diagnoses, or performs autonomous agronomic decision-making.
+       - Requests requesting dosage, chemical products, or definitive diagnosis are refused with a safety message prior to calling the LLM.
+       - All AI claims are grounded in provided source record IDs with non-AI automated fallbacks.
+    3. **Security Standards:**
+       - Authentication via HTTP-only JWT cookies (`accessToken`).
+       - Anti-CSRF double-submit token protection on state-changing operations (`X-CSRF-Token`).
+       - Strict rate limiting on authentication and AI advisory endpoints.
+       - All errors strictly conform to `{ "error": { "code": "...", "message": "...", "details": ... } }`.
+  contact:
+    name: Goviya Plus Engineering Team
+    email: support@goviya.lk
+  license:
+    name: Proprietary
+servers:
+  - url: http://localhost:4000
+    description: Local Development Server
+  - url: http://localhost:5000
+    description: Docker / Backend Default Server
+tags:
+  - name: Auth
+    description: Authentication, registration, JWT session cookies, and anti-CSRF
+      token handling
+  - name: Fields & Plots
+    description: Agricultural land management and plots with AES-256-GCM encrypted
+      GPS coordinates
+  - name: Crop Cycles
+    description: Planting cycles, varieties, seasonal scheduling, and yield projections
+  - name: Activity Logs
+    description: Daily farm operations (irrigation, observation, pest tracking,
+      general scouting)
+  - name: Inputs
+    description: Input applications (fertilizer, pesticide, seeds, organic matter)
+      record-keeping
+  - name: Harvests
+    description: Harvest recording, yield quantities, quality grading, and revenue tracking
+  - name: Photos
+    description: Farm photo uploads with automatic EXIF stripping and
+      access-controlled binary streaming
+  - name: Weather
+    description: Open-Meteo district forecasts (uses district centroids to protect
+      farmer GPS privacy)
+  - name: Sharing
+    description: Farmer consent delegation, granular category scopes, and atomic revocation
+  - name: Audit
+    description: Farmer audit trail inspection for plot access, officer reads, and
+      record modifications
+  - name: Officer
+    description: Extension officer directory and read-only endpoints for authorized
+      shared plots
+  - name: Advisory Notes
+    description: Extension officer agronomic guidance notes and field recommendations
+  - name: AI
+    description: Responsible AI record summarization and officer visit preparation
+      agenda generator
+  - name: Admin
+    description: User administration, officer verification, and audit metadata (no
+      farm records access)
+  - name: Health
+    description: System health checks, database connectivity, and runtime uptime
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: accessToken
+      description: HTTP-only cookie containing the signed JWT access token.
+    csrfProtection:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: Anti-CSRF token obtained from GET /api/auth/csrf-token. Required
+        for non-GET requests when using cookie authentication.
+  responses:
+    BadRequest:
+      description: Bad Request - Validation error or malformed request payload
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Invalid request input
+              details:
+                - field: email
+                  message: Invalid email address
+    Unauthorized:
+      description: Unauthorized - Missing or invalid authentication cookie
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: Authentication token is missing or has expired
+    Forbidden:
+      description: Forbidden - Insufficient role permissions or policy violation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: FORBIDDEN
+              message: You do not have permission to perform this action
+    NotFoundError:
+      description: Not Found - Resource does not exist or unauthorized access is
+        concealed to prevent existence enumeration
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: NOT_FOUND
+              message: Resource not found
+    ConflictError:
+      description: Conflict - Duplicate resource (e.g. email already registered)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: CONFLICT
+              message: An account with this email already exists
+    UnprocessableEntityError:
+      description: Unprocessable Entity - Semantic validation failure
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: UNPROCESSABLE_ENTITY
+              message: Cannot process request due to semantic violations
+    TooManyRequests:
+      description: Too Many Requests - Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: TOO_MANY_REQUESTS
+              message: Too many requests. Please try again later.
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: An unexpected internal server error occurred
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Invalid request input
+            details:
+              description: Optional additional context or field-level validation errors
+              nullable: true
+    PaginationMeta:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 42
+        totalPages:
+          type: integer
+          example: 5
+    UserResponse:
+      type: object
+      required:
+        - id
+        - email
+        - fullName
+        - role
+        - isVerified
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 11111111-2222-4333-8444-555555555555
+        email:
+          type: string
+          format: email
+          example: farmer.kamal@goviya.lk
+        fullName:
+          type: string
+          example: Kamal Bandara
+        phone:
+          type: string
+          nullable: true
+          example: "+94771234567"
+        role:
+          type: string
+          enum:
+            - farmer
+            - officer
+            - admin
+          example: farmer
+        isVerified:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-05-01T08:00:00.000Z
+    GpsCoordinates:
+      type: object
+      required:
+        - latitude
+        - longitude
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+          example: 8.3114
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+          example: 80.4037
+    FieldData:
+      type: object
+      required:
+        - id
+        - farmerId
+        - name
+        - district
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: a1b2c3d4-e5f6-47a8-9b0c-1d2e3f4a5b6c
+        farmerId:
+          type: string
+          format: uuid
+          example: 11111111-2222-4333-8444-555555555555
+        name:
+          type: string
+          example: Maha Wewa Paddy Fields
+        district:
+          type: string
+          example: Anuradhapura
+        description:
+          type: string
+          nullable: true
+          example: Main irrigated paddy fields bordering the reservoir
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-05-01T08:00:00.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2026-05-01T08:00:00.000Z
+    PlotResponse:
+      type: object
+      required:
+        - id
+        - farmerId
+        - name
+        - district
+        - areaHa
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d
+        farmerId:
+          type: string
+          format: uuid
+          example: 11111111-2222-4333-8444-555555555555
+        fieldId:
+          type: string
+          format: uuid
+          nullable: true
+          example: a1b2c3d4-e5f6-47a8-9b0c-1d2e3f4a5b6c
+        name:
+          type: string
+          example: Sector 5 Rice Basin
+        district:
+          type: string
+          example: Anuradhapura
+        gps_blurred_district:
+          type: string
+          example: Anuradhapura
+        areaHa:
+          type: number
+          example: 2.5
+        gps:
+          $ref: "#/components/schemas/GpsCoordinates"
+          nullable: true
+          description: Exact GPS coordinates. Returned ONLY to the plot owner. Officers
+            always receive null.
+        soilType:
+          type: string
+          nullable: true
+          example: Clay Loam
+        irrigationSource:
+          type: string
+          nullable: true
+          example: Major Tank Irrigation
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-05-01T08:00:00.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2026-05-01T08:00:00.000Z
+    CropCycleData:
+      type: object
+      required:
+        - id
+        - plotId
+        - cropName
+        - startDate
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: c3d4e5f6-a7b8-49c0-1d2e-3f4a5b6c7d8e
+        plotId:
+          type: string
+          format: uuid
+          example: b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d
+        cropName:
+          type: string
+          example: Paddy Samba
+        variety:
+          type: string
+          nullable: true
+          example: BG 352
+        startDate:
+          type: string
+          format: date
+          example: 2026-05-01
+        endDate:
+          type: string
+          format: date
+          nullable: true
+          example: 2026-08-30
+        status:
+          type: string
+          enum:
+            - planned
+            - active
+            - completed
+            - abandoned
+          example: active
+        estimatedYieldKg:
+          type: number
+          nullable: true
+          example: 4500
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-05-01T08:00:00.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2026-05-01T08:00:00.000Z
+    ActivityLogData:
+      type: object
+      required:
+        - id
+        - plotId
+        - cycleId
+        - logType
+        - logDate
+        - notes
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: d4e5f6a7-b8c9-40d1-2e3f-4a5b6c7d8e9f
+        plotId:
+          type: string
+          format: uuid
+          example: b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d
+        cycleId:
+          type: string
+          format: uuid
+          example: c3d4e5f6-a7b8-49c0-1d2e-3f4a5b6c7d8e
+        logType:
+          type: string
+          enum:
+            - general
+            - observation
+            - irrigation
+            - fertilizer
+            - pest_control
+            - disease
+            - weather
+          example: irrigation
+        logDate:
+          type: string
+          format: date
+          example: 2026-05-10
+        notes:
+          type: string
+          example: Canal sluice gates opened; flooded field to 5cm depth.
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-05-10T09:00:00.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2026-05-10T09:00:00.000Z
+    InputApplicationData:
+      type: object
+      required:
+        - id
+        - plotId
+        - cycleId
+        - inputType
+        - name
+        - quantity
+        - unit
+        - applicationDate
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: e5f6a7b8-c9d0-41e2-3f4a-5b6c7d8e9f0a
+        plotId:
+          type: string
+          format: uuid
+          example: b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d
+        cycleId:
+          type: string
+          format: uuid
+          example: c3d4e5f6-a7b8-49c0-1d2e-3f4a5b6c7d8e
+        inputType:
+          type: string
+          enum:
+            - fertilizer
+            - pesticide
+            - seed
+            - organic_matter
+            - other
+          example: fertilizer
+        name:
+          type: string
+          example: Compost Soil Conditioner
+        quantity:
+          type: number
+          example: 50
+        unit:
+          type: string
+          example: kg
+        applicationDate:
+          type: string
+          format: date
+          example: 2026-05-12
+        cost:
+          type: number
+          nullable: true
+          example: 4500
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-05-12T10:00:00.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2026-05-12T10:00:00.000Z
+    HarvestData:
+      type: object
+      required:
+        - id
+        - plotId
+        - cycleId
+        - harvestDate
+        - quantity
+        - unit
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: f6a7b8c9-d0e1-42f3-4a5b-6c7d8e9f0a1b
+        plotId:
+          type: string
+          format: uuid
+          example: b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d
+        cycleId:
+          type: string
+          format: uuid
+          example: c3d4e5f6-a7b8-49c0-1d2e-3f4a5b6c7d8e
+        harvestDate:
+          type: string
+          format: date
+          example: 2026-08-25
+        quantity:
+          type: number
+          example: 4200
+        unit:
+          type: string
+          example: kg
+        qualityGrade:
+          type: string
+          nullable: true
+          example: Grade A
+        revenue:
+          type: number
+          nullable: true
+          example: 840000
+        notes:
+          type: string
+          nullable: true
+          example: Bumper harvest with excellent grain moisture.
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-08-25T14:00:00.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2026-08-25T14:00:00.000Z
+    PhotoMetadata:
+      type: object
+      required:
+        - id
+        - plotId
+        - farmerId
+        - filename
+        - mimeType
+        - sizeBytes
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 07b8c9d0-e1f2-43a4-5b6c-7d8e9f0a1b2c
+        plotId:
+          type: string
+          format: uuid
+          example: b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d
+        farmerId:
+          type: string
+          format: uuid
+          example: 11111111-2222-4333-8444-555555555555
+        filename:
+          type: string
+          example: crop-inspection-01.jpg
+        mimeType:
+          type: string
+          enum:
+            - image/jpeg
+            - image/png
+          example: image/jpeg
+        sizeBytes:
+          type: integer
+          example: 2048500
+        width:
+          type: integer
+          nullable: true
+          example: 1920
+        height:
+          type: integer
+          nullable: true
+          example: 1080
+        caption:
+          type: string
+          nullable: true
+          example: Emergence of paddy seedlings after transplanting
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-05-15T08:30:00.000Z
+    CurrentWeather:
+      type: object
+      required:
+        - temperature
+        - humidity
+        - apparentTemperature
+        - precipitation
+        - rain
+        - weatherCode
+        - weatherDescription
+        - windSpeed
+        - windDirection
+        - isDay
+      properties:
+        temperature:
+          type: number
+          example: 28.5
+        humidity:
+          type: number
+          example: 78
+        apparentTemperature:
+          type: number
+          example: 32.1
+        precipitation:
+          type: number
+          example: 0
+        rain:
+          type: number
+          example: 0
+        weatherCode:
+          type: integer
+          example: 1
+        weatherDescription:
+          type: string
+          example: Mainly clear
+        windSpeed:
+          type: number
+          example: 12.4
+        windDirection:
+          type: number
+          example: 210
+        isDay:
+          type: boolean
+          example: true
+    DailyForecast:
+      type: object
+      required:
+        - date
+        - weatherCode
+        - weatherDescription
+        - temperatureMax
+        - temperatureMin
+        - precipitationSum
+      properties:
+        date:
+          type: string
+          format: date
+          example: 2026-05-20
+        weatherCode:
+          type: integer
+          example: 61
+        weatherDescription:
+          type: string
+          example: Slight rain
+        temperatureMax:
+          type: number
+          example: 31
+        temperatureMin:
+          type: number
+          example: 24.5
+        precipitationSum:
+          type: number
+          example: 4.2
+    WeatherResponse:
+      type: object
+      required:
+        - plotId
+        - district
+        - coordinates
+        - current
+        - daily
+        - lastUpdated
+        - isCached
+        - isFallback
+      properties:
+        plotId:
+          type: string
+          format: uuid
+          example: b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d
+        district:
+          type: string
+          example: Anuradhapura
+        coordinates:
+          $ref: "#/components/schemas/GpsCoordinates"
+          description: Representative district administrative centroid (protects farmer
+            exact GPS privacy).
+        current:
+          $ref: "#/components/schemas/CurrentWeather"
+        daily:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyForecast"
+        lastUpdated:
+          type: string
+          format: date-time
+          example: 2026-05-19T06:00:00.000Z
+        isCached:
+          type: boolean
+          example: true
+        isFallback:
+          type: boolean
+          example: false
+    ShareData:
+      type: object
+      required:
+        - id
+        - plotId
+        - officerId
+        - farmerId
+        - scope
+        - scopes
+        - grantedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 18b9c0d1-e2f3-44a5-6b7c-8d9e0f1a2b3c
+        plotId:
+          type: string
+          format: uuid
+          example: b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d
+        officerId:
+          type: string
+          format: uuid
+          example: 33333333-3333-4333-8333-333333333333
+        farmerId:
+          type: string
+          format: uuid
+          example: 11111111-2222-4333-8444-555555555555
+        scope:
+          type: string
+          enum:
+            - view_only
+            - advisory
+            - full
+          example: advisory
+        scopes:
+          type: array
+          items:
+            type: string
+            enum:
+              - view_only
+              - advisory
+              - full
+              - crop_cycles
+              - activity_logs
+              - input_applications
+              - harvests
+              - advisory_notes
+              - photos
+          example:
+            - crop_cycles
+            - activity_logs
+            - advisory_notes
+        grantedAt:
+          type: string
+          format: date-time
+          example: 2026-05-18T10:00:00.000Z
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-11-18T10:00:00.000Z
+        revokedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+    AuditLogEntry:
+      type: object
+      required:
+        - id
+        - userId
+        - action
+        - entityType
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 29c0d1e2-f3a4-45b6-7c8d-9e0f1a2b3c4d
+        userId:
+          type: string
+          format: uuid
+          example: 33333333-3333-4333-8333-333333333333
+        action:
+          type: string
+          example: plot_viewed_by_officer
+        entityType:
+          type: string
+          example: plots
+        entityId:
+          type: string
+          format: uuid
+          nullable: true
+          example: b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d
+        metadata:
+          type: object
+          description: Audit event metadata (strictly contains NO confidential farm record
+            payloads or exact GPS)
+          example:
+            plotName: Sector 5 Rice Basin
+            district: Anuradhapura
+            scope: advisory
+        ipAddress:
+          type: string
+          nullable: true
+          example: 192.168.1.100
+        userAgent:
+          type: string
+          nullable: true
+          example: Mozilla/5.0 (Windows NT 10.0; Win64; x64)
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-05-18T11:00:00.000Z
+    OfficerPlotItem:
+      type: object
+      required:
+        - id
+        - name
+        - district
+        - gps_blurred_district
+        - gps
+        - areaHa
+        - farmer
+        - share
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d
+        name:
+          type: string
+          example: Sector 5 Rice Basin
+        district:
+          type: string
+          example: Anuradhapura
+        gps_blurred_district:
+          type: string
+          example: Anuradhapura
+        gps:
+          type: string
+          nullable: true
+          example: null
+          description: "CRITICAL: Always null for officers. Exact GPS coordinates are
+            never exposed to officers."
+        areaHa:
+          type: number
+          example: 2.5
+        soilType:
+          type: string
+          nullable: true
+          example: Clay Loam
+        irrigationSource:
+          type: string
+          nullable: true
+          example: Tank Irrigation
+        farmer:
+          type: object
+          required:
+            - id
+            - fullName
+            - email
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: 11111111-2222-4333-8444-555555555555
+            fullName:
+              type: string
+              example: Kamal Bandara
+            email:
+              type: string
+              format: email
+              example: farmer.kamal@goviya.lk
+            phone:
+              type: string
+              nullable: true
+              example: "+94771234567"
+        share:
+          type: object
+          required:
+            - id
+            - scope
+            - scopes
+            - grantedAt
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: 18b9c0d1-e2f3-44a5-6b7c-8d9e0f1a2b3c
+            scope:
+              type: string
+              example: advisory
+            scopes:
+              type: array
+              items:
+                type: string
+              example:
+                - crop_cycles
+                - activity_logs
+                - advisory_notes
+            grantedAt:
+              type: string
+              format: date-time
+              example: 2026-05-18T10:00:00.000Z
+            expiresAt:
+              type: string
+              format: date-time
+              nullable: true
+              example: 2026-11-18T10:00:00.000Z
+    AdvisoryNoteData:
+      type: object
+      required:
+        - id
+        - plotId
+        - officerId
+        - officerName
+        - title
+        - notes
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 3ad1e2f3-a4b5-46c7-8d9e-0f1a2b3c4d5e
+        plotId:
+          type: string
+          format: uuid
+          example: b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d
+        officerId:
+          type: string
+          format: uuid
+          example: 33333333-3333-4333-8333-333333333333
+        officerName:
+          type: string
+          example: Nimal Perera (Agricultural Extension Officer)
+        title:
+          type: string
+          example: Soil Aeration & Water Retention Advice
+        notes:
+          type: string
+          example: Observed slight surface crusting following heavy unseasonal rainfall.
+            Recommend gentle harrow cultivation between rows.
+        recommendations:
+          type: string
+          nullable: true
+          example: Maintain standing water at 2-3cm depth to suppress weed emergence.
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-05-19T11:30:00.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2026-05-19T11:30:00.000Z
+    AIObservation:
+      type: object
+      required:
+        - observation
+        - sourceRecordIds
+      properties:
+        observation:
+          type: string
+          example: Consistent irrigation logged every 4 days with stable crop vegetative
+            development.
+        sourceRecordIds:
+          type: array
+          items:
+            type: string
+          example:
+            - d4e5f6a7-b8c9-40d1-2e3f-4a5b6c7d8e9f
+    AISummaryOutput:
+      type: object
+      required:
+        - summary
+        - keyObservations
+        - suggestedOfficerQuestions
+        - dataGaps
+      properties:
+        summary:
+          type: string
+          example: The plot is in active tillering stage under BG 352 cultivation. Regular
+            irrigation recorded with organic fertilizer applied.
+        keyObservations:
+          type: array
+          items:
+            $ref: "#/components/schemas/AIObservation"
+        suggestedOfficerQuestions:
+          type: array
+          items:
+            type: string
+          example:
+            - What organic pest prevention strategies are best suited if leaf
+              folder presence increases?
+        dataGaps:
+          type: array
+          items:
+            type: string
+          example:
+            - No soil pH or recent test results recorded in this crop cycle.
+    AIVisitPrepIssue:
+      type: object
+      required:
+        - issue
+        - sourceRecordIds
+        - suggestedAction
+      properties:
+        issue:
+          type: string
+          example: Recent activity logs note unseasonal heavy rain impacting lower basin
+            drainage.
+        sourceRecordIds:
+          type: array
+          items:
+            type: string
+          example:
+            - d4e5f6a7-b8c9-40d1-2e3f-4a5b6c7d8e9f
+        suggestedAction:
+          type: string
+          example: Inspect plot drainage bunds during the on-site visit.
+    AIVisitPrepOutput:
+      type: object
+      required:
+        - purpose
+        - timelineSummary
+        - keyIssues
+        - discussionQuestions
+        - inspectionsRecommended
+      properties:
+        purpose:
+          type: string
+          example: Field consultation preparation for mid-cycle paddy growth review and
+            soil drainage inspection.
+        timelineSummary:
+          type: string
+          example: Sown on 2026-05-01; tillering phase underway; 3 irrigation and 1
+            organic compost events logged.
+        keyIssues:
+          type: array
+          items:
+            $ref: "#/components/schemas/AIVisitPrepIssue"
+        discussionQuestions:
+          type: array
+          items:
+            type: string
+          example:
+            - Are there any localized signs of nitrogen yellowing after the
+              recent precipitation?
+        inspectionsRecommended:
+          type: array
+          items:
+            type: string
+          example:
+            - Verify bund heights and check for standing water stagnation.
+    AdminUserItem:
+      type: object
+      required:
+        - id
+        - email
+        - fullName
+        - role
+        - isVerified
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 33333333-3333-4333-8333-333333333333
+        email:
+          type: string
+          format: email
+          example: officer.kamal@goviya.lk
+        fullName:
+          type: string
+          example: Kamal Jayawardena
+        phone:
+          type: string
+          nullable: true
+          example: "+94773333333"
+        role:
+          type: string
+          enum:
+            - farmer
+            - officer
+            - admin
+          example: officer
+        isVerified:
+          type: boolean
+          example: true
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-05-01T08:00:00.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2026-05-01T08:00:00.000Z
+paths:
+  /api/health:
+    get:
+      tags:
+        - Health
+      summary: System health check and database connectivity status
+      description: Returns runtime operational status, current timestamp, uptime in
+        seconds, and database ping verification.
+      security: []
+      responses:
+        "200":
+          description: System healthy and database responsive
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                  - timestamp
+                  - uptime
+                  - database
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: 2026-05-20T10:00:00.000Z
+                  uptime:
+                    type: number
+                    example: 3600.42
+                  database:
+                    type: string
+                    example: connected
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/auth/csrf-token:
+    get:
+      tags:
+        - Auth
+      summary: Obtain anti-CSRF token
+      description: Issues a cryptographic anti-CSRF token in response payload and sets
+        a corresponding `_csrf` cookie for double-submit cookie verification on
+        mutation endpoints.
+      security: []
+      responses:
+        "200":
+          description: CSRF token successfully generated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - csrfToken
+                properties:
+                  csrfToken:
+                    type: string
+                    example: 4a8f9b2c3d1e0f7a6b5c4d3e2f1a0b9c
+  /api/auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Register new farmer or extension officer account
+      description: Creates a new user profile with password hashed using Argon2id.
+        Farmers are auto-verified; extension officers require admin verification
+        before accessing shared farm data.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - fullName
+                - role
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: farmer.kamal@goviya.lk
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 100
+                  example: SecureFarmPass123!
+                fullName:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                  example: Kamal Bandara
+                phone:
+                  type: string
+                  maxLength: 50
+                  example: "+94771234567"
+                role:
+                  type: string
+                  enum:
+                    - farmer
+                    - officer
+                  example: farmer
+      responses:
+        "201":
+          description: Account successfully created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                  - user
+                properties:
+                  message:
+                    type: string
+                    example: User registered successfully
+                  user:
+                    $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+  /api/auth/login:
+    post:
+      tags:
+        - Auth
+      summary: User login with cookie-based JWT session
+      description: Authenticates credentials using Argon2id, verifies account status,
+        increments failed login counter (temporarily locking account after 5
+        failures for 15 mins), and issues HTTP-only `accessToken` and
+        `refreshToken` cookies.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: farmer.kamal@goviya.lk
+                password:
+                  type: string
+                  minLength: 8
+                  example: SecureFarmPass123!
+      responses:
+        "200":
+          description: Authentication successful. Returns user metadata and sets
+            accessToken & refreshToken cookies.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Sets accessToken and refreshToken as HttpOnly, Secure (in
+                production), SameSite cookies.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                  - user
+                properties:
+                  message:
+                    type: string
+                    example: Login successful
+                  user:
+                    $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /api/auth/refresh:
+    post:
+      tags:
+        - Auth
+      summary: Rotate refresh token and obtain new access token
+      description: Validates existing `refreshToken` cookie, detects reuse attempts
+        (which immediately revokes the token family), rotates the refresh token
+        in the database, and issues new HTTP-only cookies.
+      security: []
+      responses:
+        "200":
+          description: Token successfully rotated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string
+                    example: Token refreshed successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Log out user and revoke refresh token
+      description: Revokes the active refresh token in the database and clears the
+        HTTP-only `accessToken` and `refreshToken` cookies.
+      security: []
+      responses:
+        "200":
+          description: Successfully logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string
+                    example: Logged out successfully
+  /api/auth/me:
+    get:
+      tags:
+        - Auth
+      summary: Get profile of current authenticated user
+      description: "Returns profile details of the user associated with the active
+        session cookie. Allowed roles: `farmer`, `officer`, `admin`."
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Current user profile details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - user
+                properties:
+                  user:
+                    $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/fields:
+    post:
+      tags:
+        - Fields & Plots
+      summary: Create a new agricultural field
+      description: "Registers a top-level field grouping for farm plots. Allowed role:
+        `farmer` only."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - district
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                  example: Maha Wewa Paddy Fields
+                district:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  example: Anuradhapura
+                description:
+                  type: string
+                  maxLength: 1000
+                  example: Irrigated paddy land below the ancient reservoir
+      responses:
+        "201":
+          description: Field created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/FieldData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    get:
+      tags:
+        - Fields & Plots
+      summary: List agricultural fields with pagination and filters
+      description: Farmers retrieve their own fields. Officers retrieve fields
+        containing plots actively shared with them. Admins receive 404.
+      security:
+        - cookieAuth: []
+      parameters:
+        - &a1
+          name: page
+          in: query
+          description: Page number for pagination (starts at 1)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - &a2
+          name: limit
+          in: query
+          description: Number of items per page (maximum 100)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          example: 10
+        - &a3
+          name: q
+          in: query
+          description: Search string to filter records by name, description, or notes
+          required: false
+          schema:
+            type: string
+          example: paddy
+        - &a4
+          name: sortBy
+          in: query
+          description: Field to sort results by
+          required: false
+          schema:
+            type: string
+          example: created_at
+        - &a5
+          name: sortOrder
+          in: query
+          description: Sort direction ascending or descending
+          required: false
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: desc
+          example: desc
+        - name: district
+          in: query
+          description: Filter fields by district name
+          schema:
+            type: string
+          example: Anuradhapura
+      responses:
+        "200":
+          description: Paginated list of fields
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FieldData"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/fields/{id}:
+    get:
+      tags:
+        - Fields & Plots
+      summary: Get single field details by ID
+      description: "Retrieves field record. Allowed roles: `farmer` (owner) or
+        `officer` (if containing a shared plot). Unauthorized access returns
+        404."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Field details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/FieldData"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    patch:
+      tags:
+        - Fields & Plots
+      summary: Update field details
+      description: "Updates field attributes. Allowed role: `farmer` (plot owner
+        only). Unauthorized users get 404."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                district:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                description:
+                  type: string
+                  maxLength: 1000
+      responses:
+        "200":
+          description: Field updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/FieldData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    delete:
+      tags:
+        - Fields & Plots
+      summary: Delete field
+      description: "Deletes a field and logs audit trail. Allowed role: `farmer`
+        (owner only). Returns 404 if unauthorized."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Field deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string
+                    example: Field deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/plots:
+    post:
+      tags:
+        - Fields & Plots
+      summary: Register new farm plot with encrypted GPS coordinates
+      description: "Creates a new farm plot. Exact GPS coordinates are encrypted using
+        AES-256-GCM before database storage. Allowed role: `farmer` only."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - district
+                - areaHa
+                - gps
+              properties:
+                fieldId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  example: a1b2c3d4-e5f6-47a8-9b0c-1d2e3f4a5b6c
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                  example: Sector 5 Rice Basin
+                district:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  example: Anuradhapura
+                areaHa:
+                  type: number
+                  minimum: 0.01
+                  example: 2.5
+                gps:
+                  $ref: "#/components/schemas/GpsCoordinates"
+                soilType:
+                  type: string
+                  maxLength: 100
+                  example: Clay Loam
+                irrigationSource:
+                  type: string
+                  maxLength: 100
+                  example: Major Tank
+      responses:
+        "201":
+          description: Plot registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PlotResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    get:
+      tags:
+        - Fields & Plots
+      summary: List farm plots with pagination and filters
+      description: Farmers receive their own plots with decrypted exact GPS
+        coordinates. Officers receive blurred district location and strictly
+        null GPS coordinates. Admins receive 404.
+      security:
+        - cookieAuth: []
+      parameters:
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+        - name: district
+          in: query
+          schema:
+            type: string
+          example: Anuradhapura
+        - name: fieldId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Paginated list of plots
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlotResponse"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/plots/{id}:
+    get:
+      tags:
+        - Fields & Plots
+      summary: Get plot details by ID
+      description: "Owner receives decrypted exact GPS coordinates. Officer receives
+        blurred district location and `gps: null`. Unauthorized access returns
+        404."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Plot record details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PlotResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    patch:
+      tags:
+        - Fields & Plots
+      summary: Update plot details and GPS coordinates
+      description: "Updates plot attributes. Any new GPS coordinates are re-encrypted
+        with AES-256-GCM. Allowed role: `farmer` (plot owner only). Unauthorized
+        users get 404."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fieldId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                district:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                areaHa:
+                  type: number
+                  minimum: 0.01
+                gps:
+                  $ref: "#/components/schemas/GpsCoordinates"
+                soilType:
+                  type: string
+                  maxLength: 100
+                irrigationSource:
+                  type: string
+                  maxLength: 100
+      responses:
+        "200":
+          description: Plot updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PlotResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    delete:
+      tags:
+        - Fields & Plots
+      summary: Delete farm plot
+      description: "Permanently deletes plot and records audit event. Allowed role:
+        `farmer` (owner only). Returns 404 if unauthorized."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Plot deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string
+                    example: Plot deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/crop-cycles:
+    post:
+      tags:
+        - Crop Cycles
+      summary: Create a new crop cycle for a plot
+      description: "Registers seasonal cultivation schedule. Allowed role: `farmer`
+        (owner of plot)."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - plotId
+                - cropName
+                - startDate
+              properties:
+                plotId:
+                  type: string
+                  format: uuid
+                  example: b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d
+                cropName:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  example: Paddy Samba
+                variety:
+                  type: string
+                  maxLength: 100
+                  example: BG 352
+                startDate:
+                  type: string
+                  format: date
+                  example: 2026-05-01
+                endDate:
+                  type: string
+                  format: date
+                  nullable: true
+                  example: 2026-08-30
+                status:
+                  type: string
+                  enum:
+                    - planned
+                    - active
+                    - completed
+                    - abandoned
+                  default: planned
+                estimatedYieldKg:
+                  type: number
+                  minimum: 0.01
+                  nullable: true
+                  example: 4500
+      responses:
+        "201":
+          description: Crop cycle created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CropCycleData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    get:
+      tags:
+        - Crop Cycles
+      summary: List crop cycles with pagination and filters
+      description: Farmers access their own crop cycles. Officers access crop cycles
+        for shared plots with `crop_cycles` scope.
+      security:
+        - cookieAuth: []
+      parameters:
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+        - name: plotId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - planned
+              - active
+              - completed
+              - abandoned
+        - name: cropName
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated list of crop cycles
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CropCycleData"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/crop-cycles/{id}:
+    get:
+      tags:
+        - Crop Cycles
+      summary: Get crop cycle details by ID
+      description: "Returns single crop cycle. Allowed roles: `farmer` (owner) or
+        `officer` (with active share in scope). Unauthorized returns 404."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Crop cycle details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CropCycleData"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    patch:
+      tags:
+        - Crop Cycles
+      summary: Update crop cycle
+      description: "Updates crop cycle attributes. Allowed role: `farmer` (owner).
+        Unauthorized returns 404."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cropName:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                variety:
+                  type: string
+                  maxLength: 100
+                startDate:
+                  type: string
+                  format: date
+                endDate:
+                  type: string
+                  format: date
+                  nullable: true
+                status:
+                  type: string
+                  enum:
+                    - planned
+                    - active
+                    - completed
+                    - abandoned
+                estimatedYieldKg:
+                  type: number
+                  minimum: 0.01
+                  nullable: true
+      responses:
+        "200":
+          description: Crop cycle updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CropCycleData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    delete:
+      tags:
+        - Crop Cycles
+      summary: Delete crop cycle
+      description: "Deletes crop cycle. Allowed role: `farmer` (owner). Unauthorized
+        returns 404."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Crop cycle deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string
+                    example: Crop cycle deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/activity-logs:
+    post:
+      tags:
+        - Activity Logs
+      summary: Record new farm activity log
+      description: "Records daily farming activity (irrigation, fertilization, pest
+        observation, disease scouting, etc.). Allowed role: `farmer` (owner)."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - cycleId
+                - notes
+              properties:
+                cycleId:
+                  type: string
+                  format: uuid
+                  example: c3d4e5f6-a7b8-49c0-1d2e-3f4a5b6c7d8e
+                logType:
+                  type: string
+                  enum:
+                    - general
+                    - observation
+                    - irrigation
+                    - fertilizer
+                    - pest_control
+                    - disease
+                    - weather
+                  default: general
+                  example: irrigation
+                logDate:
+                  type: string
+                  format: date
+                  example: 2026-05-10
+                notes:
+                  type: string
+                  minLength: 2
+                  example: Canal sluice gates opened; flooded field to 5cm depth.
+      responses:
+        "201":
+          description: Activity log recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ActivityLogData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    get:
+      tags:
+        - Activity Logs
+      summary: List activity logs with filters
+      description: Farmers retrieve logs for their plots. Officers retrieve logs for
+        shared plots with `activity_logs` scope.
+      security:
+        - cookieAuth: []
+      parameters:
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+        - name: cycleId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum:
+              - general
+              - observation
+              - irrigation
+              - fertilizer
+              - pest_control
+              - disease
+              - weather
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Paginated list of activity logs
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ActivityLogData"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/activity-logs/{id}:
+    get:
+      tags:
+        - Activity Logs
+      summary: Get activity log by ID
+      description: "Returns activity log. Allowed roles: `farmer` (owner) or `officer`
+        (with active share in scope). Unauthorized returns 404."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Activity log details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ActivityLogData"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    patch:
+      tags:
+        - Activity Logs
+      summary: Update activity log
+      description: "Updates activity log notes or category. Allowed role: `farmer`
+        (owner only). Returns 404 if unauthorized."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                logType:
+                  type: string
+                  enum:
+                    - general
+                    - observation
+                    - irrigation
+                    - fertilizer
+                    - pest_control
+                    - disease
+                    - weather
+                logDate:
+                  type: string
+                  format: date
+                notes:
+                  type: string
+                  minLength: 2
+      responses:
+        "200":
+          description: Activity log updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ActivityLogData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    delete:
+      tags:
+        - Activity Logs
+      summary: Delete activity log
+      description: "Deletes activity log. Allowed role: `farmer` (owner). Unauthorized
+        returns 404."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Activity log deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string
+                    example: Activity log deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/input-applications:
+    post:
+      tags:
+        - Inputs
+      summary: Record input application (fertilizer, pesticide, seed, organic matter)
+      description: "Stores free-text farm input records. Allowed role: `farmer`
+        (owner). Unauthorized returns 404."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - cycleId
+                - name
+                - quantity
+                - unit
+                - applicationDate
+              properties:
+                cycleId:
+                  type: string
+                  format: uuid
+                  example: c3d4e5f6-a7b8-49c0-1d2e-3f4a5b6c7d8e
+                inputType:
+                  type: string
+                  enum:
+                    - fertilizer
+                    - pesticide
+                    - seed
+                    - organic_matter
+                    - other
+                  default: other
+                  example: fertilizer
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                  example: Compost Soil Conditioner
+                quantity:
+                  type: number
+                  minimum: 0.01
+                  example: 50
+                unit:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                  example: kg
+                applicationDate:
+                  type: string
+                  format: date
+                  example: 2026-05-12
+                cost:
+                  type: number
+                  minimum: 0
+                  nullable: true
+                  example: 4500
+      responses:
+        "201":
+          description: Input application recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/InputApplicationData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    get:
+      tags:
+        - Inputs
+      summary: List input applications with filters
+      description: Farmers retrieve their inputs. Officers retrieve inputs for shared
+        plots with `input_applications` scope.
+      security:
+        - cookieAuth: []
+      parameters:
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+        - name: cycleId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum:
+              - fertilizer
+              - pesticide
+              - seed
+              - organic_matter
+              - other
+      responses:
+        "200":
+          description: Paginated list of input applications
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/InputApplicationData"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/input-applications/{id}:
+    get:
+      tags:
+        - Inputs
+      summary: Get input application by ID
+      description: "Returns single input application. Allowed roles: `farmer` (owner)
+        or `officer` (with active share in scope). Unauthorized returns 404."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Input application details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/InputApplicationData"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    patch:
+      tags:
+        - Inputs
+      summary: Update input application
+      description: "Updates input record. Allowed role: `farmer` (owner). Unauthorized
+        returns 404."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                inputType:
+                  type: string
+                  enum:
+                    - fertilizer
+                    - pesticide
+                    - seed
+                    - organic_matter
+                    - other
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                quantity:
+                  type: number
+                  minimum: 0.01
+                unit:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                applicationDate:
+                  type: string
+                  format: date
+                cost:
+                  type: number
+                  minimum: 0
+                  nullable: true
+      responses:
+        "200":
+          description: Input application updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/InputApplicationData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    delete:
+      tags:
+        - Inputs
+      summary: Delete input application
+      description: "Deletes input record. Allowed role: `farmer` (owner). Unauthorized
+        returns 404."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Input application deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string
+                    example: Input application deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/harvests:
+    post:
+      tags:
+        - Harvests
+      summary: Record crop harvest
+      description: "Records harvested yield quantity, quality grade, and revenue.
+        Allowed role: `farmer` (owner). Unauthorized returns 404."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - cycleId
+                - harvestDate
+                - quantity
+                - unit
+              properties:
+                cycleId:
+                  type: string
+                  format: uuid
+                  example: c3d4e5f6-a7b8-49c0-1d2e-3f4a5b6c7d8e
+                harvestDate:
+                  type: string
+                  format: date
+                  example: 2026-08-25
+                quantity:
+                  type: number
+                  minimum: 0.01
+                  example: 4200
+                unit:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                  example: kg
+                qualityGrade:
+                  type: string
+                  maxLength: 50
+                  nullable: true
+                  example: Grade A
+                revenue:
+                  type: number
+                  minimum: 0
+                  nullable: true
+                  example: 840000
+                notes:
+                  type: string
+                  maxLength: 1000
+                  nullable: true
+                  example: Bumper harvest with excellent grain moisture.
+      responses:
+        "201":
+          description: Harvest recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/HarvestData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    get:
+      tags:
+        - Harvests
+      summary: List harvests with filters
+      description: Farmers retrieve harvests for their plots. Officers retrieve
+        harvests for shared plots with `harvests` scope.
+      security:
+        - cookieAuth: []
+      parameters:
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+        - name: cycleId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: qualityGrade
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated list of harvests
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/HarvestData"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/harvests/{id}:
+    get:
+      tags:
+        - Harvests
+      summary: Get harvest by ID
+      description: "Returns single harvest record. Allowed roles: `farmer` (owner) or
+        `officer` (with active share in scope). Unauthorized returns 404."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Harvest details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/HarvestData"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    patch:
+      tags:
+        - Harvests
+      summary: Update harvest
+      description: "Updates harvest record. Allowed role: `farmer` (owner).
+        Unauthorized returns 404."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                harvestDate:
+                  type: string
+                  format: date
+                quantity:
+                  type: number
+                  minimum: 0.01
+                unit:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                qualityGrade:
+                  type: string
+                  maxLength: 50
+                  nullable: true
+                revenue:
+                  type: number
+                  minimum: 0
+                  nullable: true
+                notes:
+                  type: string
+                  maxLength: 1000
+                  nullable: true
+      responses:
+        "200":
+          description: Harvest updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/HarvestData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    delete:
+      tags:
+        - Harvests
+      summary: Delete harvest
+      description: "Deletes harvest record. Allowed role: `farmer` (owner).
+        Unauthorized returns 404."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Harvest deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string
+                    example: Harvest record deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/plots/{id}/photos:
+    post:
+      tags:
+        - Photos
+      summary: Upload plot photo with EXIF stripping and magic bytes verification
+      description: "Uploads a crop photo. Validates real image magic bytes (rejects
+        fake extensions), strips private EXIF metadata (embedded GPS, camera
+        serials), generates thumbnail, and stores file securely. Allowed role:
+        `farmer` (plot owner only). Unauthorized returns 404."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - photo
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: JPEG or PNG image file (max 10MB)
+                caption:
+                  type: string
+                  maxLength: 500
+                  example: Emergence of paddy seedlings after transplanting
+      responses:
+        "201":
+          description: Photo uploaded and EXIF stripped successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PhotoMetadata"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    get:
+      tags:
+        - Photos
+      summary: List photos for a plot
+      description: Farmers retrieve photos for their plot. Officers retrieve photos if
+        granted an active share covering `photos` scope. Unauthorized returns
+        404.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+      responses:
+        "200":
+          description: Paginated list of photo metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PhotoMetadata"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/plots/{id}/photos/{photoId}:
+    get:
+      tags:
+        - Photos
+      summary: Get photo metadata
+      description: "Retrieves photo metadata record. Allowed roles: `farmer` (owner)
+        or `officer` (active share). Unauthorized returns 404."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: photoId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Photo metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PhotoMetadata"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/plots/{id}/photos/{photoId}/file:
+    get:
+      tags:
+        - Photos
+      summary: Stream binary image file
+      description: Securely streams the binary photo file (EXIF stripped) after
+        verifying plot authorization. Unauthorized access returns 404.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: photoId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: size
+          in: query
+          schema:
+            type: string
+            enum:
+              - full
+              - thumb
+            default: full
+        - name: thumb
+          in: query
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+              - "1"
+              - "0"
+      responses:
+        "200":
+          description: Binary image stream (JPEG/PNG)
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/plots/{id}/weather:
+    get:
+      tags:
+        - Weather
+      summary: Get weather forecast for plot district
+      description: "Retrieves current weather and 7-day forecast from Open-Meteo using
+        district centroid coordinates. Exact GPS is never transmitted to
+        external services. Results are cached and fall back to stored copies if
+        external API fails. Allowed roles: `farmer` (owner) or `officer` (shared
+        plot). Unauthorized returns 404."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: refresh
+          in: query
+          description: Force refresh cache from Open-Meteo API
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Weather forecast data
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/WeatherResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/shares:
+    post:
+      tags:
+        - Sharing
+      summary: Grant extension officer access to plots with defined category scopes
+      description: "Creates a consent grant delegating read/advisory permissions to an
+        extension officer. Fails with 403 if officer is not verified by admin.
+        Allowed role: `farmer` only."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - officerId
+                - plotIds
+              properties:
+                officerId:
+                  type: string
+                  format: uuid
+                  example: 33333333-3333-4333-8333-333333333333
+                plotIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+                  example:
+                    - b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d
+                scope:
+                  type: string
+                  enum:
+                    - view_only
+                    - advisory
+                    - full
+                  example: advisory
+                scopes:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - view_only
+                      - advisory
+                      - full
+                      - crop_cycles
+                      - activity_logs
+                      - input_applications
+                      - harvests
+                      - advisory_notes
+                      - photos
+                  example:
+                    - crop_cycles
+                    - activity_logs
+                    - advisory_notes
+                expiresAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  example: 2026-11-18T10:00:00.000Z
+      responses:
+        "201":
+          description: Share access successfully granted
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                  - data
+                properties:
+                  message:
+                    type: string
+                    example: Plots shared successfully
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ShareData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    get:
+      tags:
+        - Sharing
+      summary: List shares with pagination and status filters
+      description: Farmers see shares granted for their plots. Officers see shares
+        granted to them. Admins receive 403.
+      security:
+        - cookieAuth: []
+      parameters:
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - active
+              - revoked
+              - expired
+              - all
+            default: all
+        - name: plotId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: officerId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Paginated list of shares
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ShareData"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/shares/{id}:
+    delete:
+      tags:
+        - Sharing
+      summary: Revoke share access atomically with audit logging
+      description: "Immediately terminates an active share within a database
+        transaction and records an audit log. On the very next request, officer
+        access returns 404. Allowed role: `farmer` (plot owner only).
+        Unauthorized returns 404."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Share successfully revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string
+                    example: Share revoked successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/audit:
+    get:
+      tags:
+        - Audit
+      summary: Farmer inspects their own farm audit trail
+      description: "Provides full visibility to farmers over who viewed, accessed, or
+        modified their farm records (including `plot_viewed_by_officer` events,
+        share grants, and revocations). Allowed role: `farmer` only."
+      security:
+        - cookieAuth: []
+      parameters:
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+        - name: action
+          in: query
+          schema:
+            type: string
+          example: plot_viewed_by_officer
+        - name: entityType
+          in: query
+          schema:
+            type: string
+          example: plots
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Paginated audit events
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditLogEntry"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/plots/{id}/advisory-notes:
+    post:
+      tags:
+        - Advisory Notes
+      summary: Extension officer writes advisory note for a shared plot
+      description: "Allows verified extension officers with an active share covering
+        `advisory_notes` to record field observations and agronomic guidance.
+        Allowed role: `officer` only. Fails with 404 if share is missing,
+        expired, or revoked."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - notes
+              properties:
+                title:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                  default: Field Advisory Note
+                  example: Soil Aeration & Water Retention Advice
+                notes:
+                  type: string
+                  minLength: 5
+                  maxLength: 5000
+                  example: Observed slight surface crusting following heavy unseasonal rainfall.
+                    Recommend gentle harrow cultivation.
+                recommendations:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+                  example: Maintain standing water at 2-3cm depth to suppress weed emergence.
+      responses:
+        "201":
+          description: Advisory note recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AdvisoryNoteData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    get:
+      tags:
+        - Advisory Notes
+      summary: List advisory notes for a plot
+      description: Farmers view notes authored for their plot. Officers view notes if
+        granted active share. Unauthorized returns 404.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+      responses:
+        "200":
+          description: Paginated list of advisory notes
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdvisoryNoteData"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/officer/plots:
+    get:
+      tags:
+        - Officer
+      summary: List active shared plots accessible to the extension officer
+      description: "NOTE: Unauthorized, unshared, expired, or revoked access returns
+        404 to prevent resource existence enumeration. GPS coordinates are
+        strictly null and location is blurred to district level."
+      security:
+        - cookieAuth: []
+      parameters:
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+        - name: district
+          in: query
+          schema:
+            type: string
+          example: Anuradhapura
+      responses:
+        "200":
+          description: Paginated list of shared plots with blurred district and null GPS
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OfficerPlotItem"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/officer/plots/{id}:
+    get:
+      tags:
+        - Officer
+      summary: Officer views shared plot details (blurred district, null GPS)
+      description: "NOTE: Unauthorized or revoked access returns 404. Creates a
+        plot_viewed_by_officer audit entry. GPS is strictly null."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Shared plot details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - plot
+                properties:
+                  plot:
+                    $ref: "#/components/schemas/OfficerPlotItem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/officer/plots/{id}/crop-cycles:
+    get:
+      tags:
+        - Officer
+      summary: Officer views crop cycles for shared plot
+      description: "NOTE: Unauthorized or revoked access returns 404. Requires
+        crop_cycles category scope."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+      responses:
+        "200":
+          description: Crop cycles for shared plot
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CropCycleData"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/officer/plots/{id}/activity-logs:
+    get:
+      tags:
+        - Officer
+      summary: Officer views activity logs for shared plot
+      description: "NOTE: Unauthorized or revoked access returns 404. Requires
+        activity_logs category scope."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+      responses:
+        "200":
+          description: Activity logs for shared plot
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ActivityLogData"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/officer/plots/{id}/input-applications:
+    get:
+      tags:
+        - Officer
+      summary: Officer views input applications for shared plot
+      description: "NOTE: Unauthorized or revoked access returns 404. Requires
+        input_applications category scope."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+      responses:
+        "200":
+          description: Input applications for shared plot
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/InputApplicationData"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/officer/plots/{id}/harvests:
+    get:
+      tags:
+        - Officer
+      summary: Officer views harvests for shared plot
+      description: "NOTE: Unauthorized or revoked access returns 404. Requires
+        harvests category scope."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+      responses:
+        "200":
+          description: Harvests for shared plot
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/HarvestData"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/officer/plots/{id}/advisory-notes:
+    get:
+      tags:
+        - Officer
+      summary: Officer views advisory notes for shared plot
+      description: "NOTE: Unauthorized or revoked access returns 404. Requires
+        advisory_notes category scope."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+      responses:
+        "200":
+          description: Advisory notes for shared plot
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdvisoryNoteData"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/officer/plots/{id}/photos:
+    get:
+      tags:
+        - Officer
+      summary: Officer views photo metadata for shared plot
+      description: "NOTE: Unauthorized or revoked access returns 404. Requires photos
+        category scope."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+      responses:
+        "200":
+          description: Photo list for shared plot
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PhotoMetadata"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/officer/plots/{id}/weather:
+    get:
+      tags:
+        - Officer
+      summary: Officer views weather for shared plot district
+      description: "NOTE: Unauthorized or revoked access returns 404. Uses district
+        centroid to preserve GPS privacy."
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: refresh
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Weather data for shared plot district
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/WeatherResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/ai/summary:
+    post:
+      tags:
+        - AI
+      summary: Generate AI records summary and suggested questions for extension officer
+      description: >-
+        IMPORTANT RESPONSIBLE AI NOTICE:
+
+        Output is informational only, never a pesticide/fertilizer prescription,
+        dosage or diagnosis.
+
+        Safety filter guarantees:
+
+        1. Requests for chemical dosages, brand product recommendations, or
+        disease diagnosis are refused before calling the LLM.
+
+        2. Record notes are sanitized to protect against prompt injection.
+
+        3. Claims are grounded in supplied source-record IDs; hallucinated
+        source IDs are dropped.
+
+        4. If LLM times out, returns invalid JSON, or triggers a safety refusal,
+        a deterministic non-AI fallback is returned.
+
+        5. AI NEVER writes to or alters database records.
+
+        Rate limit: 10 requests per minute. Allowed roles: `farmer`, `officer`
+        (with valid share).
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - plotId
+              properties:
+                plotId:
+                  type: string
+                  format: uuid
+                  example: b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d
+                cycleId:
+                  type: string
+                  format: uuid
+                  example: c3d4e5f6-a7b8-49c0-1d2e-3f4a5b6c7d8e
+                userPrompt:
+                  type: string
+                  maxLength: 1000
+                  example: Please summarize recent crop activities and suggest questions for my
+                    upcoming meeting with the agricultural officer.
+      responses:
+        "200":
+          description: AI summary output grounded in source records
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - isFallback
+                  - flags
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AISummaryOutput"
+                  isFallback:
+                    type: boolean
+                    example: false
+                  flags:
+                    type: array
+                    items:
+                      type: string
+                    example: []
+        "400":
+          description: Safety violation - Request asked for chemical dosage, brand
+            recommendation, or medical/disease diagnosis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: SAFETY_POLICY_VIOLATION
+                  message: Requests for chemical dosages, pesticide recommendations, or disease
+                    diagnoses cannot be processed by AI. Please consult your
+                    local Agricultural Extension Officer.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /api/ai/visit-prep:
+    post:
+      tags:
+        - AI
+      summary: Generate AI visit prep briefing and discussion agenda for extension
+        officer consultation
+      description: >-
+        IMPORTANT RESPONSIBLE AI NOTICE:
+
+        Output is informational only, never a pesticide/fertilizer prescription,
+        dosage or diagnosis.
+
+        Safety filter guarantees:
+
+        1. Summarizes timeline and organizes discussion questions grounded in
+        verified farm record IDs.
+
+        2. Refuses unsafe requests without calling LLM.
+
+        3. Automatically falls back to deterministic rule-based summary if LLM
+        fails or times out.
+
+        4. AI NEVER writes to or alters database records.
+
+        Rate limit: 10 requests per minute. Allowed roles: `farmer`, `officer`
+        (with valid share).
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - plotId
+              properties:
+                plotId:
+                  type: string
+                  format: uuid
+                  example: b2c3d4e5-f6a7-48b9-0c1d-2e3f4a5b6c7d
+                cycleId:
+                  type: string
+                  format: uuid
+                  example: c3d4e5f6-a7b8-49c0-1d2e-3f4a5b6c7d8e
+                focusAreas:
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 100
+                  maxItems: 10
+                  example:
+                    - Irrigation schedule
+                    - Compost application
+      responses:
+        "200":
+          description: AI visit preparation agenda
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - isFallback
+                  - flags
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AIVisitPrepOutput"
+                  isFallback:
+                    type: boolean
+                    example: false
+                  flags:
+                    type: array
+                    items:
+                      type: string
+                    example: []
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /api/admin/users:
+    get:
+      tags:
+        - Admin
+      summary: List registered platform users (metadata only)
+      description: "ADMIN PRIVACY BOUNDARY: Returns user administrative metadata only.
+        Strictly no farm records, logs, GPS, or private agronomic payloads.
+        Allowed role: `admin` only."
+      security:
+        - cookieAuth: []
+      parameters:
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum:
+              - farmer
+              - officer
+              - admin
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - active
+              - deactivated
+              - all
+      responses:
+        "200":
+          description: Paginated user list
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminUserItem"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/admin/users/{id}/status:
+    patch:
+      tags:
+        - Admin
+      summary: Activate or deactivate user account
+      description: "Enables or disables user login access. Allowed role: `admin` only."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isActive:
+                  type: boolean
+                  example: true
+                status:
+                  type: string
+                  enum:
+                    - active
+                    - deactivated
+                action:
+                  type: string
+                  enum:
+                    - activate
+                    - deactivate
+      responses:
+        "200":
+          description: User status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                  - user
+                properties:
+                  message:
+                    type: string
+                    example: User account status updated successfully
+                  user:
+                    $ref: "#/components/schemas/AdminUserItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/admin/users/{id}/activate:
+    patch:
+      tags:
+        - Admin
+      summary: Activate user account
+      description: "Convenience endpoint to activate a user account. Allowed role:
+        `admin` only."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: User activated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                  - user
+                properties:
+                  message:
+                    type: string
+                    example: User account status updated successfully
+                  user:
+                    $ref: "#/components/schemas/AdminUserItem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/admin/users/{id}/deactivate:
+    patch:
+      tags:
+        - Admin
+      summary: Deactivate user account
+      description: "Convenience endpoint to deactivate a user account. Allowed role:
+        `admin` only."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: User deactivated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                  - user
+                properties:
+                  message:
+                    type: string
+                    example: User account status updated successfully
+                  user:
+                    $ref: "#/components/schemas/AdminUserItem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/admin/officers/pending:
+    get:
+      tags:
+        - Admin
+      summary: List extension officers awaiting verification
+      description: "Returns extension officers whose accounts are pending
+        verification. Allowed role: `admin` only."
+      security:
+        - cookieAuth: []
+      parameters:
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+      responses:
+        "200":
+          description: Paginated pending officers list
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminUserItem"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/admin/officers/{id}/verify:
+    patch:
+      tags:
+        - Admin
+      summary: Verify, reject, or suspend extension officer
+      description: "Approve, reject, or suspend agricultural extension officer
+        credentials. Allowed role: `admin` only."
+      security:
+        - cookieAuth: []
+        - csrfProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum:
+                    - approve
+                    - reject
+                    - suspend
+                  example: approve
+                reason:
+                  type: string
+                  maxLength: 500
+                  example: Verified against Department of Agriculture registry.
+      responses:
+        "200":
+          description: Officer verification status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                  - officer
+                properties:
+                  message:
+                    type: string
+                    example: Officer verification status updated successfully
+                  officer:
+                    $ref: "#/components/schemas/AdminUserItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /api/admin/audit:
+    get:
+      tags:
+        - Admin
+      summary: View platform audit metadata trail
+      description: "ADMIN PRIVACY BOUNDARY: Strictly administrative metadata only
+        (actor, timestamp, IP, entity type). Contains NO confidential farm
+        record text, private farmer notes, or exact GPS coordinates. Allowed
+        role: `admin` only."
+      security:
+        - cookieAuth: []
+      parameters:
+        - *a1
+        - *a2
+        - *a3
+        - *a4
+        - *a5
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: entityType
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Paginated admin audit metadata log
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditLogEntry"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
