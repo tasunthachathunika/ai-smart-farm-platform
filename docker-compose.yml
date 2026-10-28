@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: goviya_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-${POSTGRES_USER:-goviya}}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-${POSTGRES_PASSWORD:-ChooseAStrongPassword123}}
+      POSTGRES_DB: ${DB_NAME:-${POSTGRES_DB:-goviya_plus}}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-${POSTGRES_USER:-goviya}} -d ${DB_NAME:-${POSTGRES_DB:-goviya_plus}}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: goviya_backend
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5000}:5000"
+    env_file:
+      - .env
+    volumes:
+      - ./docs:/app/docs:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    driver: local
