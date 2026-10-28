@@ -8,6 +8,17 @@ import {
   plotQuerySchema,
   uuidParamSchema,
 } from '../validators/farm.validator';
+import { createAdvisoryNoteSchema } from '../validators/advisoryNote.validator';
+import { advisoryNoteController } from '../controllers/advisoryNote.controller';
+import { photoController } from '../controllers/photo.controller';
+import { uploadPhotoMiddleware } from '../middleware/upload';
+import {
+  photoUploadBodySchema,
+  photoQuerySchema,
+  photoParamSchema,
+  photoFileQuerySchema,
+} from '../validators/photo.validator';
+import { weatherController } from '../controllers/weather.controller';
 
 const router = Router();
 
@@ -40,5 +51,52 @@ router.delete(
   validate(uuidParamSchema, 'params'),
   plotController.delete,
 );
+
+// POST /api/plots/:id/advisory-notes (Extension officer writes advisory notes)
+router.post(
+  '/:id/advisory-notes',
+  requireRole('officer'),
+  validate(uuidParamSchema, 'params'),
+  validate(createAdvisoryNoteSchema, 'body'),
+  advisoryNoteController.create,
+);
+
+// GET /api/plots/:id/advisory-notes (Farmer reads, officer reads if active share, blocked after revoke)
+router.get(
+  '/:id/advisory-notes',
+  validate(uuidParamSchema, 'params'),
+  advisoryNoteController.listForPlot,
+);
+
+// POST /api/plots/:id/photos (Upload photo with multer memory storage, 5MB limit, magic bytes check)
+router.post(
+  '/:id/photos',
+  uploadPhotoMiddleware,
+  validate(uuidParamSchema, 'params'),
+  validate(photoUploadBodySchema, 'body'),
+  photoController.upload,
+);
+
+// GET /api/plots/:id/photos (List paginated photos)
+router.get(
+  '/:id/photos',
+  validate(uuidParamSchema, 'params'),
+  validate(photoQuerySchema, 'query'),
+  photoController.list,
+);
+
+// GET /api/plots/:id/photos/:photoId (Get photo metadata)
+router.get('/:id/photos/:photoId', validate(photoParamSchema, 'params'), photoController.getById);
+
+// GET /api/plots/:id/photos/:photoId/file (Serve binary image securely only through assertPlotAccess)
+router.get(
+  '/:id/photos/:photoId/file',
+  validate(photoParamSchema, 'params'),
+  validate(photoFileQuerySchema, 'query'),
+  photoController.serveFile,
+);
+
+// GET /api/plots/:id/weather (Weather forecast by district coordinates with caching & fallback)
+router.get('/:id/weather', validate(uuidParamSchema, 'params'), weatherController.getPlotWeather);
 
 export const plotRoutes = router;

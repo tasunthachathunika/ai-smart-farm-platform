@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { fieldService } from '../services/field.service';
 import { cropCycleService } from '../services/cropCycle.service';
 import { activityLogService } from '../services/activityLog.service';
+import { inputApplicationService } from '../services/inputApplication.service';
+import { harvestService } from '../services/harvest.service';
 
 // ----------------------------------------------------
 // Fields
@@ -61,8 +63,6 @@ export class FieldController {
     }
   };
 }
-
-export const fieldController = new FieldController();
 
 // ----------------------------------------------------
 // Crop Cycles
@@ -126,8 +126,6 @@ export class CropCycleController {
   };
 }
 
-export const cropCycleController = new CropCycleController();
-
 // ----------------------------------------------------
 // Activity Logs
 // ----------------------------------------------------
@@ -190,4 +188,137 @@ export class ActivityLogController {
   };
 }
 
+// ----------------------------------------------------
+// Input Applications
+// ----------------------------------------------------
+export class InputApplicationController {
+  public create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const input = await inputApplicationService.createInputApplication(req.user!, req.body, {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      res.status(201).json({ input });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public list = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const result = await inputApplicationService.getInputApplications(
+        req.user!,
+        req.query as Record<string, unknown>,
+      );
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const input = await inputApplicationService.getInputApplicationById(req.user!, req.params.id);
+      res.status(200).json({ input });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const input = await inputApplicationService.updateInputApplication(
+        req.user!,
+        req.params.id,
+        req.body,
+        {
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+        },
+      );
+      res.status(200).json({ input });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public delete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      await inputApplicationService.deleteInputApplication(req.user!, req.params.id, {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      res.status(200).json({ message: 'Input application successfully deleted' });
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+// ----------------------------------------------------
+// Harvests
+// ----------------------------------------------------
+export class HarvestController {
+  public create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const harvest = await harvestService.createHarvest(req.user!, req.body, {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      res.status(201).json({ harvest });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public list = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const result = await harvestService.getHarvests(
+        req.user!,
+        req.query as Record<string, unknown>,
+      );
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const harvest = await harvestService.getHarvestById(req.user!, req.params.id);
+      res.status(200).json({ harvest });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const harvest = await harvestService.updateHarvest(req.user!, req.params.id, req.body, {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      res.status(200).json({ harvest });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public delete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      await harvestService.deleteHarvest(req.user!, req.params.id, {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      res.status(200).json({ message: 'Harvest successfully deleted' });
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+export const fieldController = new FieldController();
+export const cropCycleController = new CropCycleController();
 export const activityLogController = new ActivityLogController();
+export const inputApplicationController = new InputApplicationController();
+export const harvestController = new HarvestController();

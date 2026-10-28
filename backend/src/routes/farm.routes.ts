@@ -3,6 +3,8 @@ import {
   fieldController,
   cropCycleController,
   activityLogController,
+  inputApplicationController,
+  harvestController,
 } from '../controllers/farm.controller';
 import { authenticate, requireRole } from '../middleware/auth';
 import { validate } from '../validators';
@@ -16,6 +18,12 @@ import {
   createActivityLogSchema,
   updateActivityLogSchema,
   activityLogQuerySchema,
+  createInputApplicationSchema,
+  updateInputApplicationSchema,
+  inputApplicationQuerySchema,
+  createHarvestSchema,
+  updateHarvestSchema,
+  harvestQuerySchema,
   uuidParamSchema,
 } from '../validators/farm.validator';
 
@@ -87,3 +95,55 @@ activityLogRouter.patch(
   activityLogController.update,
 );
 activityLogRouter.delete('/:id', validate(uuidParamSchema, 'params'), activityLogController.delete);
+
+// ==========================================
+// 4. Input Applications Router
+// ==========================================
+export const inputApplicationRouter = Router();
+inputApplicationRouter.use(authenticate);
+inputApplicationRouter.use(requireRole('farmer', 'officer'));
+
+inputApplicationRouter.post(
+  '/',
+  validate(createInputApplicationSchema, 'body'),
+  inputApplicationController.create,
+);
+inputApplicationRouter.get(
+  '/',
+  validate(inputApplicationQuerySchema, 'query'),
+  inputApplicationController.list,
+);
+inputApplicationRouter.get(
+  '/:id',
+  validate(uuidParamSchema, 'params'),
+  inputApplicationController.getById,
+);
+inputApplicationRouter.patch(
+  '/:id',
+  validate(uuidParamSchema, 'params'),
+  validate(updateInputApplicationSchema, 'body'),
+  inputApplicationController.update,
+);
+inputApplicationRouter.delete(
+  '/:id',
+  validate(uuidParamSchema, 'params'),
+  inputApplicationController.delete,
+);
+
+// ==========================================
+// 5. Harvests Router
+// ==========================================
+export const harvestRouter = Router();
+harvestRouter.use(authenticate);
+harvestRouter.use(requireRole('farmer', 'officer'));
+
+harvestRouter.post('/', validate(createHarvestSchema, 'body'), harvestController.create);
+harvestRouter.get('/', validate(harvestQuerySchema, 'query'), harvestController.list);
+harvestRouter.get('/:id', validate(uuidParamSchema, 'params'), harvestController.getById);
+harvestRouter.patch(
+  '/:id',
+  validate(uuidParamSchema, 'params'),
+  validate(updateHarvestSchema, 'body'),
+  harvestController.update,
+);
+harvestRouter.delete('/:id', validate(uuidParamSchema, 'params'), harvestController.delete);
