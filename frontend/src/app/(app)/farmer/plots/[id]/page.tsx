@@ -46,6 +46,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Table } from '@/components/ui/Table';
 import { PhotoManager } from '@/components/farmer/PhotoManager';
+import { WeatherWidget } from '@/components/farmer/WeatherWidget';
 
 type TabKey = 'overview' | 'logs' | 'inputs' | 'harvests' | 'photos' | 'officer-notes';
 
@@ -539,6 +540,13 @@ function PlotDetailContent() {
               </div>
             </CardContent>
           </Card>
+
+          {/* District Agro-Weather Widget */}
+          <WeatherWidget
+            plotId={plotId}
+            plotName={plot?.name}
+            district={plot?.district}
+          />
 
           {/* Active Cycle Overview */}
           <Card>

@@ -5,28 +5,24 @@ import Link from 'next/link';
 import {
   MapPin,
   Plus,
-  CloudSun,
   ClipboardList,
   FlaskConical,
   Wheat,
   Camera,
   Sparkles,
-  Thermometer,
-  Droplets,
-  Wind,
   Clock,
   ArrowRight,
-  RefreshCw,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { farmService } from '@/services/farmService';
-import { Plot, CropCycle, ActivityLog, WeatherData } from '@/types/farm';
+import { Plot, CropCycle, ActivityLog } from '@/types/farm';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Alert } from '@/components/ui/Alert';
 import { TimelineItem } from '@/components/ui/TimelineItem';
+import { WeatherWidget } from '@/components/farmer/WeatherWidget';
 
 export default function FarmerDashboard() {
   const { user } = useAuthStore();
@@ -37,7 +33,6 @@ export default function FarmerDashboard() {
   const [plots, setPlots] = useState<Plot[]>([]);
   const [cycles, setCycles] = useState<Record<string, CropCycle>>({});
   const [recentLogs, setRecentLogs] = useState<ActivityLog[]>([]);
-  const [weather, setWeather] = useState<WeatherData | null>(null);
 
   const loadDashboardData = useCallback(async () => {
     setIsLoading(true);
@@ -59,15 +54,6 @@ export default function FarmerDashboard() {
           setCycles(cyclesMap);
         } catch {
           // ignore cycle failures gracefully
-        }
-
-        // 3. Fetch weather for the primary plot
-        try {
-          const primaryPlot = fetchedPlots[0];
-          const weatherData = await farmService.getPlotWeather(primaryPlot.id);
-          setWeather(weatherData);
-        } catch {
-          setWeather(null);
         }
       }
 
@@ -141,89 +127,14 @@ export default function FarmerDashboard() {
         </Alert>
       )}
 
-      {/* 2. Weather Card (Only shown if weather endpoint returns data) */}
-      {weather && (
-        <Card className="border-green-300 bg-gradient-to-br from-green-50 to-white">
-          <CardHeader className="pb-3 border-b border-green-200/60">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <CloudSun className="w-5 h-5 text-green-700" aria-hidden="true" />
-                <CardTitle className="text-base sm:text-lg">
-                  District Forecast: {weather.district}
-                </CardTitle>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs">
-                {weather.isCached && (
-                  <span className="px-2 py-0.5 rounded bg-sand-200 text-ink-900 font-semibold">
-                    Cached
-                  </span>
-                )}
-                <span className="text-ink-600">
-                  Updated: {new Date(weather.lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => farmService.getPlotWeather(weather.plotId, true).then(setWeather)}
-                  className="p-1 rounded text-green-700 hover:bg-green-100 min-h-[32px] min-w-[32px] flex items-center justify-center transition-colors"
-                  title="Refresh weather"
-                  aria-label="Refresh weather data"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-            <CardDescription className="text-xs text-ink-600">
-              District centroid telemetry. Your exact GPS coordinates remain encrypted on disk.
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="pt-3">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-status-info-bg text-status-info flex items-center justify-center shrink-0">
-                  <Thermometer className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-xs text-ink-600 font-semibold">Temperature</p>
-                  <p className="text-xl font-bold text-ink-900">{weather.current.temperature}°C</p>
-                  <p className="text-[11px] text-ink-600">{weather.current.weatherDescription}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-status-info-bg text-status-info flex items-center justify-center shrink-0">
-                  <Droplets className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-xs text-ink-600 font-semibold">Precipitation</p>
-                  <p className="text-xl font-bold text-ink-900">{weather.current.precipitation} mm</p>
-                  <p className="text-[11px] text-ink-600">Humidity: {weather.current.humidity}%</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-status-info-bg text-status-info flex items-center justify-center shrink-0">
-                  <Wind className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-xs text-ink-600 font-semibold">Wind Speed</p>
-                  <p className="text-xl font-bold text-ink-900">{weather.current.windSpeed} km/h</p>
-                </div>
-              </div>
-
-              {weather.daily && weather.daily.length > 0 && (
-                <div className="flex flex-col justify-center">
-                  <p className="text-xs text-ink-600 font-semibold">Tomorrow&apos;s Outlook</p>
-                  <p className="text-sm font-bold text-ink-900">
-                    {weather.daily[0]?.temperatureMax}°C / {weather.daily[0]?.temperatureMin}°C
-                  </p>
-                  <p className="text-[11px] text-ink-600 truncate">{weather.daily[0]?.weatherDescription}</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      {/* 2. Weather Widget (Shows district agro-weather for primary plot) */}
+      {plots.length > 0 && (
+        <WeatherWidget
+          plotId={plots[0].id}
+          plotName={plots[0].name}
+          district={plots[0].district}
+          showDailyForecast={true}
+        />
       )}
 
       {/* 3. Quick Actions Grid */}

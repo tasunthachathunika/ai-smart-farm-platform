@@ -1,53 +1,93 @@
 'use client';
 
-import React from 'react';
-import { Droplets, Wind, Thermometer } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { MapPin, Plus } from 'lucide-react';
+import { farmService } from '@/services/farmService';
+import { Plot } from '@/types/farm';
+import { WeatherWidget } from '@/components/farmer/WeatherWidget';
+import { Select } from '@/components/ui/Select';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 export default function FarmerWeatherPage() {
+  const router = useRouter();
+  const [plots, setPlots] = useState<Plot[]>([]);
+  const [selectedPlotId, setSelectedPlotId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    async function fetchPlots() {
+      try {
+        const res = await farmService.getPlots({ limit: 100 });
+        const list = res.data || [];
+        setPlots(list);
+        if (list.length > 0) {
+          setSelectedPlotId(list[0].id);
+        }
+      } catch {
+        // Empty state handles error
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchPlots();
+  }, []);
+
+  const selectedPlot = plots.find((p) => p.id === selectedPlotId);
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-ink-900">District Weather Forecast</h1>
-        <p className="text-sm text-ink-600 mt-1">
-          Weather telemetry calculated from district centroid coordinates to preserve field location privacy.
-        </p>
+      {/* Page Title & Context */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-ink-900">District Weather Forecast</h1>
+          <p className="text-sm text-ink-600 mt-1">
+            Official agro-meteorological forecast mapped to district centroids to protect exact farm GPS coordinates.
+          </p>
+        </div>
+
+        {plots.length > 1 && (
+          <div className="w-full sm:w-64">
+            <Select
+              label="Select Plot"
+              value={selectedPlotId}
+              onChange={(e) => setSelectedPlotId(e.target.value)}
+              options={plots.map((p) => ({
+                value: p.id,
+                label: `${p.name} (${p.district})`,
+              }))}
+            />
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-status-info-bg text-status-info flex items-center justify-center shrink-0">
-            <Thermometer className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-ink-600 font-semibold uppercase">Temperature</p>
-            <p className="text-2xl font-extrabold text-ink-900">29°C</p>
-            <p className="text-xs text-ink-600">Daytime High 32°C</p>
-          </div>
-        </Card>
-
-        <Card className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-status-info-bg text-status-info flex items-center justify-center shrink-0">
-            <Droplets className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-ink-600 font-semibold uppercase">Precipitation</p>
-            <p className="text-2xl font-extrabold text-ink-900">75%</p>
-            <p className="text-xs text-ink-600">Monsoon Showers Expected</p>
-          </div>
-        </Card>
-
-        <Card className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-status-info-bg text-status-info flex items-center justify-center shrink-0">
-            <Wind className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-ink-600 font-semibold uppercase">Wind Speed</p>
-            <p className="text-2xl font-extrabold text-ink-900">14 km/h</p>
-            <p className="text-xs text-ink-600">Moderate North-East Breeze</p>
-          </div>
-        </Card>
-      </div>
+      {/* Main Content Area */}
+      {isLoading ? (
+        <div className="space-y-4">
+          <Skeleton variant="rectangular" height={100} className="w-full rounded-card" />
+          <Skeleton variant="rectangular" height={260} className="w-full rounded-card" />
+        </div>
+      ) : plots.length === 0 ? (
+        <EmptyState
+          icon={MapPin}
+          title="No Plots Available"
+          description="Register your first plot to receive district-tailored weather forecasts and rainfall estimates."
+          action={{
+            label: 'Register First Plot',
+            onClick: () => router.push('/farmer/plots'),
+            icon: <Plus className="w-4 h-4" />,
+          }}
+        />
+      ) : (
+        selectedPlot && (
+          <WeatherWidget
+            plotId={selectedPlot.id}
+            plotName={selectedPlot.name}
+            district={selectedPlot.district}
+          />
+        )
+      )}
     </div>
   );
 }

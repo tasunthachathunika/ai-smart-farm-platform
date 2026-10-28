@@ -61,15 +61,11 @@ export const farmService = {
   },
 
   // --- Plot Weather ---
-  async getPlotWeather(plotId: string, refresh = false): Promise<WeatherData | null> {
-    try {
-      const res = await api.get<{ data: WeatherData }>(`/plots/${plotId}/weather`, {
-        params: refresh ? { refresh: 'true' } : undefined,
-      });
-      return res.data.data;
-    } catch {
-      return null;
-    }
+  async getPlotWeather(plotId: string, refresh = false): Promise<WeatherData> {
+    const res = await api.get<{ data: WeatherData }>(`/plots/${plotId}/weather`, {
+      params: refresh ? { refresh: 'true' } : undefined,
+    });
+    return res.data.data;
   },
 
   // --- Crop Cycles ---
