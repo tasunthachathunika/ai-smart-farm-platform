@@ -164,3 +164,65 @@ export const activityLogQuerySchema = paginationQuerySchema.extend({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
 });
+
+// ==========================================
+// 5. Input Applications (free-text product, no recommendations)
+// ==========================================
+export const inputTypeEnum = z.enum(['fertilizer', 'pesticide', 'seed', 'organic_matter', 'other']);
+
+export const createInputApplicationSchema = z.object({
+  cycleId: z.string().uuid('cycleId must be a valid UUID'),
+  inputType: inputTypeEnum.default('other'),
+  name: z.string().trim().min(2, 'Product name must be at least 2 characters').max(255),
+  quantity: z.number().positive('quantity must be greater than 0'),
+  unit: z.string().trim().min(1, 'unit is required').max(50),
+  applicationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'applicationDate must be YYYY-MM-DD'),
+  cost: z.number().nonnegative().optional().nullable(),
+});
+
+export const updateInputApplicationSchema = z.object({
+  inputType: inputTypeEnum.optional(),
+  name: z.string().trim().min(2).max(255).optional(),
+  quantity: z.number().positive().optional(),
+  unit: z.string().trim().min(1).max(50).optional(),
+  applicationDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  cost: z.number().nonnegative().optional().nullable(),
+});
+
+export const inputApplicationQuerySchema = paginationQuerySchema.extend({
+  cycleId: z.string().uuid().optional(),
+  type: inputTypeEnum.optional(),
+});
+
+// ==========================================
+// 6. Harvests
+// ==========================================
+export const createHarvestSchema = z.object({
+  cycleId: z.string().uuid('cycleId must be a valid UUID'),
+  harvestDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'harvestDate must be YYYY-MM-DD'),
+  quantity: z.number().positive('quantity must be greater than 0'),
+  unit: z.string().trim().min(1, 'unit is required').max(50),
+  qualityGrade: z.string().trim().max(50).optional().nullable(),
+  revenue: z.number().nonnegative().optional().nullable(),
+  notes: z.string().trim().max(1000).optional().nullable(),
+});
+
+export const updateHarvestSchema = z.object({
+  harvestDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  quantity: z.number().positive().optional(),
+  unit: z.string().trim().min(1).max(50).optional(),
+  qualityGrade: z.string().trim().max(50).optional().nullable(),
+  revenue: z.number().nonnegative().optional().nullable(),
+  notes: z.string().trim().max(1000).optional().nullable(),
+});
+
+export const harvestQuerySchema = paginationQuerySchema.extend({
+  cycleId: z.string().uuid().optional(),
+  qualityGrade: z.string().trim().optional(),
+});
