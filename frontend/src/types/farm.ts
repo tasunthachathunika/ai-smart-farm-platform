@@ -317,4 +317,49 @@ export interface AuditEntry {
   createdAt: string;
 }
 
+// --- Officer Module Types ---
+export interface OfficerPlotItem {
+  id: string;
+  name: string;
+  district: string;
+  gps_blurred_district: string;
+  gps: null;
+  areaHa: number;
+  soilType: string | null;
+  irrigationSource: string | null;
+  farmer: {
+    id: string;
+    fullName: string;
+    email: string;
+    phone: string | null;
+  };
+  share: {
+    id: string;
+    scope: ShareScope;
+    scopes: string[];
+    grantedAt: string;
+    expiresAt: string | null;
+  };
+}
+
+export interface OfficerAdvisoryNote {
+  id: string;
+  plotId: string;
+  officerId: string;
+  officerName: string;
+  officerEmail: string;
+  title: string;
+  notes: string;
+  recommendations: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAdvisoryNoteInput {
+  title?: string;
+  notes: string;
+  recommendations?: string | null;
+}
+
+
 
