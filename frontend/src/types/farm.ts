@@ -255,3 +255,66 @@ export interface AIServiceResponse<T> {
   refusal?: boolean;
 }
 
+// --- Sharing & Permissions Types ---
+export type ShareScope =
+  | 'crop_cycles'
+  | 'activity_logs'
+  | 'input_applications'
+  | 'harvests'
+  | 'photos'
+  | 'advisory_notes'
+  | 'view_only'
+  | 'advisory'
+  | 'full';
+
+export interface SharedPlotRecord {
+  id: string;
+  plotId: string;
+  plotName?: string;
+  district?: string;
+  officerId: string;
+  officerName?: string;
+  officerEmail?: string;
+  farmerId?: string;
+  farmerName?: string;
+  scope: string;
+  scopes?: string[];
+  grantedAt: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  revokedBy: string | null;
+}
+
+export interface CreateShareInput {
+  officerId: string;
+  plotIds: string[];
+  scopes?: string[];
+  scope?: ShareScope;
+  expiresAt?: string | null;
+}
+
+export interface VerifiedOfficer {
+  id: string;
+  fullName: string;
+  email: string;
+  district: string;
+  department: string;
+  isVerified: boolean;
+}
+
+// --- Audit Log Types ---
+export interface AuditEntry {
+  id: string;
+  userId: string | null;
+  actorName?: string | null;
+  actorRole?: string | null;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  metadata: Record<string, unknown> | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+}
+
+
