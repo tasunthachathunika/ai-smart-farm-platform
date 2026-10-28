@@ -181,7 +181,7 @@ export default function FarmerDashboard() {
             </button>
           </Link>
 
-          <Link href="/farmer/ai" className="w-full col-span-2 sm:col-span-1">
+          <Link href="/farmer/ai-assistant" className="w-full col-span-2 sm:col-span-1">
             <button
               type="button"
               className="w-full min-h-touch p-3 rounded-card bg-ai-50 border border-ai-300 hover:border-ai-600 hover:bg-ai-50/80 shadow-card flex flex-col items-center justify-center text-center gap-1.5 transition-all text-ai-800"

@@ -206,3 +206,52 @@ export interface CreateHarvestInput {
   notes?: string | null;
 }
 
+// --- AI Request & Response Types ---
+export interface AISummaryRequest {
+  plotId: string;
+  cycleId?: string;
+  userPrompt?: string;
+}
+
+export interface AIVisitPrepRequest {
+  plotId: string;
+  cycleId?: string;
+  focusAreas?: string[];
+}
+
+export interface ObservationItem {
+  observation: string;
+  sourceRecordIds: string[];
+}
+
+export interface SummaryOutput {
+  summary: string;
+  keyObservations: ObservationItem[];
+  suggestedOfficerQuestions: string[];
+  dataGaps: string[];
+}
+
+export interface VisitPrepIssue {
+  issue: string;
+  sourceRecordIds: string[];
+  suggestedAction: string;
+}
+
+export interface VisitPrepOutput {
+  purpose: string;
+  timelineSummary: string;
+  keyIssues: VisitPrepIssue[];
+  discussionQuestions: string[];
+  inspectionsRecommended: string[];
+}
+
+export interface AIServiceResponse<T> {
+  analysisId: string;
+  plotId: string;
+  analysisType: 'summary' | 'visit_prep';
+  data: T;
+  isFallback: boolean;
+  flags?: string[];
+  refusal?: boolean;
+}
+

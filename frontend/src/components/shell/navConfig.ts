@@ -27,7 +27,7 @@ export const navItemsByRole: Record<UserRole, NavItem[]> = {
   farmer: [
     { label: 'Dashboard', href: '/farmer', icon: LayoutDashboard, isBottomNav: true },
     { label: 'Plots', href: '/farmer/plots', icon: MapPin, isBottomNav: true },
-    { label: 'AI Assistant', href: '/farmer/ai', icon: Sparkles, isBottomNav: true },
+    { label: 'AI Assistant', href: '/farmer/ai-assistant', icon: Sparkles, isBottomNav: true },
     { label: 'Weather', href: '/farmer/weather', icon: CloudSun, isBottomNav: true },
     { label: 'Sharing', href: '/farmer/sharing', icon: Share2, isBottomNav: true },
     { label: 'Photos', href: '/farmer/photos', icon: Camera, isBottomNav: false },
