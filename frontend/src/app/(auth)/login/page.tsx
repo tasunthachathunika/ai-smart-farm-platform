@@ -1,46 +1,61 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { LogIn } from 'lucide-react';
+import { LogIn, Eye, EyeOff, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
+import { ApiError } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 
 function LoginFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, isLoading, error: authError } = useAuthStore();
+  const { login, isLoading } = useAuthStore();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [localError, setLocalError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Discrete error state handling
+  const [genericError, setGenericError] = useState<string | null>(null);
+  const [lockoutError, setLockoutError] = useState<string | null>(null);
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
+
+  const emailInputRef = useRef<HTMLInputElement>(null);
 
   const isExpired = searchParams.get('expired') === 'true';
   const redirectTarget = searchParams.get('redirect');
 
+  // Autofocus on email field on mount
+  useEffect(() => {
+    emailInputRef.current?.focus();
+  }, []);
+
+  // Display session expiration notification
   useEffect(() => {
     if (isExpired) {
-      setLocalError('Your session has expired. Please log in again to continue.');
+      setGenericError('Your secure session has expired. Please sign in again.');
     }
   }, [isExpired]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLocalError(null);
+    setGenericError(null);
+    setLockoutError(null);
+    setRateLimitError(null);
 
-    if (!email || !password) {
-      setLocalError('Please enter both email and password.');
+    if (!email.trim() || !password) {
+      setGenericError('Invalid email or password.');
       return;
     }
 
     try {
-      const user = await login({ email, password });
+      const user = await login({ email: email.trim(), password });
 
-      // Determine redirect destination
+      // Preserve ?redirect= query param or route to appropriate dashboard
       if (redirectTarget) {
         router.push(redirectTarget);
         return;
@@ -59,8 +74,27 @@ function LoginFormContent() {
         default:
           router.push('/');
       }
-    } catch {
-      // Error is set in store and displayed below
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      const code = apiErr?.code;
+
+      if (code === 'ACCOUNT_LOCKED') {
+        setLockoutError(
+          'Your account is temporarily locked due to repeated failed login attempts. Please try again in 15 minutes.'
+        );
+      } else if (code === 'RATE_LIMITED' || apiErr?.status === 429) {
+        const retryAfter = (apiErr?.details as { retryAfter?: string | number })?.retryAfter;
+        setRateLimitError(
+          retryAfter
+            ? `Too many login attempts. Please wait ${retryAfter} second(s) before trying again.`
+            : 'Too many requests. Please wait a few moments before trying again.'
+        );
+      } else if (code === 'ACCOUNT_DEACTIVATED') {
+        setGenericError('Account has been deactivated. Please contact an administrator.');
+      } else {
+        // Generic error on bad credentials (constant time defense per AGENTS.md)
+        setGenericError('Invalid email or password.');
+      }
     }
   };
 
@@ -73,50 +107,104 @@ function LoginFormContent() {
             <span aria-hidden="true">🌾</span>
             <span>Goviya Plus</span>
           </Link>
-          <p className="text-sm text-ink-600">Secure Farm Records &amp; Crop Advisory</p>
+          <p className="text-sm text-ink-600">Keep your farm records. Stay in control.</p>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle className="text-xl">Sign in to your account</CardTitle>
             <CardDescription>
-              Enter your credentials to access farm records and advisory tools.
+              Enter your registered credentials to access your plots and advisory notes.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {(localError || authError) && (
+            {/* Account Lockout Alert */}
+            {lockoutError && (
               <div className="mb-4">
-                <Alert variant="error" onDismiss={() => setLocalError(null)}>
-                  {localError || authError}
+                <Alert variant="error" title="Account Temporarily Locked" onDismiss={() => setLockoutError(null)}>
+                  <div className="flex items-start gap-2">
+                    <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{lockoutError}</span>
+                  </div>
+                </Alert>
+              </div>
+            )}
+
+            {/* Rate Limiting 429 Alert */}
+            {rateLimitError && (
+              <div className="mb-4">
+                <Alert variant="warning" title="Rate Limit Exceeded" onDismiss={() => setRateLimitError(null)}>
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{rateLimitError}</span>
+                  </div>
+                </Alert>
+              </div>
+            )}
+
+            {/* Generic Credential Error */}
+            {genericError && (
+              <div className="mb-4">
+                <Alert variant="error" onDismiss={() => setGenericError(null)}>
+                  {genericError}
                 </Alert>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <Input
-                label="Email Address"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="farmer@goviya.lk"
-              />
+              {/* Email with AutoFocus */}
+              <div className="flex flex-col gap-1.5 w-full">
+                <label htmlFor="login-email" className="text-sm font-semibold text-ink-900">
+                  Email Address <span className="text-status-danger" aria-hidden="true">*</span>
+                </label>
+                <input
+                  ref={emailInputRef}
+                  id="login-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="farmer@goviya.lk"
+                  className="w-full min-h-touch px-3.5 py-2.5 rounded-card text-ink-900 bg-white border border-sand-200 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 transition-colors placeholder:text-ink-600/60"
+                />
+              </div>
 
-              <Input
-                label="Password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              {/* Password with Visibility Toggle */}
+              <div className="flex flex-col gap-1.5 w-full">
+                <label htmlFor="login-password" className="text-sm font-semibold text-ink-900">
+                  Password <span className="text-status-danger" aria-hidden="true">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    id="login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full min-h-touch pl-3.5 pr-12 py-2.5 rounded-card text-ink-900 bg-white border border-sand-200 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5 text-ink-600 hover:text-ink-900 rounded-card min-h-touch min-w-touch flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" aria-hidden="true" />
+                    ) : (
+                      <Eye className="w-5 h-5" aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
+              </div>
 
               <Button
                 type="submit"
                 variant="primary"
                 isLoading={isLoading}
-                className="w-full mt-2"
+                className="w-full mt-2 font-bold"
                 leftIcon={<LogIn className="w-4 h-4" />}
               >
                 Sign In
