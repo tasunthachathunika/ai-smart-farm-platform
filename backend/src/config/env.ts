@@ -16,6 +16,14 @@ export const envSchema = z.object({
     .string()
     .length(64, 'GPS_ENCRYPTION_KEY must be a 64-character hex string (32 bytes)'),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  PHOTO_STORAGE_DIR: z.string().default('./storage/photos'),
+  SWAGGER_ENABLED: z
+    .preprocess((val) => {
+      if (val !== undefined && val !== '') {
+        return val === 'true' || val === '1' || val === true;
+      }
+      return (process.env.NODE_ENV || 'development') !== 'production';
+    }, z.boolean()),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -32,6 +40,10 @@ export function parseEnv(rawEnv: NodeJS.ProcessEnv = process.env): Env {
           GPS_ENCRYPTION_KEY:
             rawEnv.GPS_ENCRYPTION_KEY ||
             '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+          SWAGGER_ENABLED:
+            rawEnv.SWAGGER_ENABLED !== undefined
+              ? rawEnv.SWAGGER_ENABLED === 'true'
+              : true,
         }
       : {}),
   };

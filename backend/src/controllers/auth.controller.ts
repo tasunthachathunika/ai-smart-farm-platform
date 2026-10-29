@@ -4,7 +4,7 @@ import { env } from '../config/env';
 import { ACCESS_TOKEN_MAX_AGE_MS, REFRESH_TOKEN_MAX_AGE_MS } from '../utils/token';
 import { setCsrfCookie, clearCsrfCookie } from '../middleware/csrf';
 
-const isProduction = env.NODE_ENV === 'production';
+const isProduction = env.NODE_ENV === 'production' && !env.CORS_ORIGIN.includes('localhost');
 
 export const baseCookieOptions: CookieOptions = {
   httpOnly: true,
