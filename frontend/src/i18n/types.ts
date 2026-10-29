@@ -8,6 +8,9 @@ export interface TranslationDictionary {
     cancel: string;
     continue: string;
     back: string;
+    backToHome: string;
+    menu: string;
+    closeMenu: string;
     confirm: string;
     delete: string;
     refresh: string;
