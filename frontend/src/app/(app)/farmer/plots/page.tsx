@@ -56,6 +56,48 @@ const SRI_LANKA_DISTRICTS = [
   'Vavuniya',
 ];
 
+/**
+ * Extracts and formats detailed error messages from backend ApiError responses
+ * including field-level issues in error.details.
+ */
+function formatApiErrorMessage(err: unknown, fallback = 'An unexpected error occurred.'): string {
+  if (!err) return fallback;
+  const apiErr = err as ApiError;
+  const mainMessage = apiErr?.message || fallback;
+
+  if (Array.isArray(apiErr?.details) && apiErr.details.length > 0) {
+    const formattedDetails = apiErr.details
+      .map((item: unknown) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') {
+          const record = item as Record<string, unknown>;
+          if (record.field && record.message) {
+            return `${record.field}: ${record.message}`;
+          }
+          if (record.message) return String(record.message);
+          return JSON.stringify(record);
+        }
+        return String(item);
+      })
+      .filter(Boolean);
+
+    if (formattedDetails.length > 0) {
+      return `${mainMessage}: ${formattedDetails.join(', ')}`;
+    }
+  } else if (apiErr?.details && typeof apiErr.details === 'object') {
+    const entries = Object.entries(apiErr.details as Record<string, unknown>).map(
+      ([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`,
+    );
+    if (entries.length > 0) {
+      return `${mainMessage}: ${entries.join(', ')}`;
+    }
+  } else if (typeof apiErr?.details === 'string' && apiErr.details.trim()) {
+    return `${mainMessage}: ${apiErr.details.trim()}`;
+  }
+
+  return mainMessage;
+}
+
 export default function FarmerPlotsPage() {
   const [plots, setPlots] = useState<Plot[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
@@ -76,7 +118,7 @@ export default function FarmerPlotsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Form fields
+  // Plot Form fields
   const [fieldName, setFieldName] = useState('');
   const [plotFieldId, setPlotFieldId] = useState('');
   const [district, setDistrict] = useState('Anuradhapura');
@@ -86,6 +128,12 @@ export default function FarmerPlotsPage() {
   const [latitude, setLatitude] = useState('8.3114');
   const [longitude, setLongitude] = useState('80.4037');
   const [isLocating, setIsLocating] = useState(false);
+
+  // Inline Field Creation state (POST /api/fields)
+  const [isCreatingNewField, setIsCreatingNewField] = useState(false);
+  const [newFieldName, setNewFieldName] = useState('');
+  const [newFieldDistrict, setNewFieldDistrict] = useState('Anuradhapura');
+  const [newFieldDescription, setNewFieldDescription] = useState('');
 
   // Delete confirmation modal state
   const [deletingPlot, setDeletingPlot] = useState<Plot | null>(null);
@@ -105,8 +153,7 @@ export default function FarmerPlotsPage() {
       setTotalPages(res.pagination?.totalPages || 1);
       setTotalPlots(res.pagination?.total || 0);
     } catch (err: unknown) {
-      const apiErr = err as ApiError;
-      setError(apiErr?.message || 'Failed to load farm plots. Please retry.');
+      setError(formatApiErrorMessage(err, 'Failed to load farm plots. Please retry.'));
     } finally {
       setIsLoading(false);
     }
@@ -117,13 +164,20 @@ export default function FarmerPlotsPage() {
   }, [fetchPlots]);
 
   useEffect(() => {
-    farmService.getFields().then(setFields).catch(() => setFields([]));
+    farmService
+      .getFields()
+      .then(setFields)
+      .catch(() => setFields([]));
   }, []);
 
   const openCreateModal = () => {
     setEditingPlot(null);
     setFieldName('');
     setPlotFieldId('');
+    setIsCreatingNewField(false);
+    setNewFieldName('');
+    setNewFieldDistrict('Anuradhapura');
+    setNewFieldDescription('');
     setDistrict('Anuradhapura');
     setAreaHa('1.5');
     setSoilType('Red-Yellow Podzolic');
@@ -138,6 +192,10 @@ export default function FarmerPlotsPage() {
     setEditingPlot(plot);
     setFieldName(plot.name);
     setPlotFieldId(plot.fieldId || '');
+    setIsCreatingNewField(false);
+    setNewFieldName('');
+    setNewFieldDistrict(plot.district);
+    setNewFieldDescription('');
     setDistrict(plot.district);
     setAreaHa(plot.areaHa.toString());
     setSoilType(plot.soilType || '');
@@ -166,7 +224,7 @@ export default function FarmerPlotsPage() {
         setIsLocating(false);
         setFormError(`Unable to retrieve GPS: ${geoErr.message}. You can enter coordinates manually.`);
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000 },
     );
   };
 
@@ -174,12 +232,13 @@ export default function FarmerPlotsPage() {
     e.preventDefault();
     setFormError(null);
 
+    const trimmedName = fieldName.trim();
     const parsedArea = parseFloat(areaHa);
     const parsedLat = parseFloat(latitude);
     const parsedLng = parseFloat(longitude);
 
-    if (!fieldName.trim()) {
-      setFormError('Plot name is required.');
+    if (trimmedName.length < 2) {
+      setFormError('Plot name must be at least 2 characters.');
       return;
     }
 
@@ -200,14 +259,42 @@ export default function FarmerPlotsPage() {
 
     setIsSubmitting(true);
     try {
+      let resolvedFieldId: string | undefined = undefined;
+
+      // Handle new field creation if requested (POST /api/fields)
+      if (!editingPlot && isCreatingNewField) {
+        const trimmedNewFieldName = newFieldName.trim();
+        if (trimmedNewFieldName.length < 2) {
+          setFormError('New farm field name must be at least 2 characters.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        try {
+          const createdField = await farmService.createField({
+            name: trimmedNewFieldName,
+            district: newFieldDistrict.trim() || district,
+            description: newFieldDescription.trim() || undefined,
+          });
+          setFields((prev) => [createdField, ...prev]);
+          resolvedFieldId = createdField.id;
+        } catch (fieldErr: unknown) {
+          setFormError(formatApiErrorMessage(fieldErr, 'Failed to create new farm field.'));
+          setIsSubmitting(false);
+          return;
+        }
+      } else if (plotFieldId && plotFieldId !== '__new__') {
+        resolvedFieldId = plotFieldId;
+      }
+
       // GPS strictly in request body, never in URL or logs
       const plotInput: CreatePlotInput = {
-        name: fieldName.trim(),
-        district,
+        name: trimmedName,
+        district: district.trim(),
         areaHa: parsedArea,
         soilType: soilType.trim() || undefined,
         irrigationSource: irrigationSource.trim() || undefined,
-        fieldId: plotFieldId || undefined,
+        fieldId: resolvedFieldId,
         gps: {
           latitude: parsedLat,
           longitude: parsedLng,
@@ -216,17 +303,16 @@ export default function FarmerPlotsPage() {
 
       if (editingPlot) {
         await farmService.updatePlot(editingPlot.id, plotInput);
-        setSuccessMessage(`Plot "${fieldName}" updated successfully.`);
+        setSuccessMessage(`Plot "${trimmedName}" updated successfully.`);
       } else {
         await farmService.createPlot(plotInput);
-        setSuccessMessage(`Plot "${fieldName}" registered with AES-256 encrypted GPS.`);
+        setSuccessMessage(`Plot "${trimmedName}" registered with AES-256 encrypted GPS.`);
       }
 
       setIsModalOpen(false);
       fetchPlots();
     } catch (err: unknown) {
-      const apiErr = err as ApiError;
-      setFormError(apiErr?.message || 'Failed to save plot. Please check inputs.');
+      setFormError(formatApiErrorMessage(err, 'Failed to save plot. Please check inputs.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -241,8 +327,7 @@ export default function FarmerPlotsPage() {
       setDeletingPlot(null);
       fetchPlots();
     } catch (err: unknown) {
-      const apiErr = err as ApiError;
-      setError(apiErr?.message || 'Failed to delete plot.');
+      setError(formatApiErrorMessage(err, 'Failed to delete plot.'));
     } finally {
       setIsDeleting(false);
     }
@@ -484,26 +569,101 @@ export default function FarmerPlotsPage() {
             value={fieldName}
             onChange={(e) => setFieldName(e.target.value)}
             placeholder="e.g. Mahaweli North Acre 1"
+            helperText="Plot name must be at least 2 characters"
           />
 
-          {fields.length > 0 && (
-            <Select
-              label="Associated Farm Field (Optional)"
-              value={plotFieldId}
-              onChange={(e) => setPlotFieldId(e.target.value)}
-              options={[
-                { value: '', label: 'None (Standalone Plot)' },
-                ...fields.map((f) => ({ value: f.id, label: `${f.name} (${f.district})` })),
-              ]}
-            />
-          )}
+          {/* Associated Farm Field with Create/Select */}
+          <div className="space-y-2">
+            {!editingPlot && !isCreatingNewField && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreatingNewField(true);
+                    setNewFieldDistrict(district);
+                  }}
+                  className="text-xs font-bold text-green-700 hover:text-green-800 -mb-2"
+                >
+                  + Create New Farm Field
+                </button>
+              </div>
+            )}
+
+            {!isCreatingNewField ? (
+              <Select
+                label="Associated Farm Field (Optional)"
+                value={plotFieldId}
+                onChange={(e) => {
+                  if (e.target.value === '__new__') {
+                    setIsCreatingNewField(true);
+                    setNewFieldDistrict(district);
+                  } else {
+                    setPlotFieldId(e.target.value);
+                  }
+                }}
+                options={[
+                  { value: '', label: 'None (Standalone Plot)' },
+                  ...fields.map((f) => ({ value: f.id, label: `${f.name} (${f.district})` })),
+                  ...(!editingPlot ? [{ value: '__new__', label: '+ Create New Farm Field...' }] : []),
+                ]}
+                helperText="Groups plots under a farm field for aggregate management"
+              />
+            ) : (
+              <div className="p-3.5 rounded-card bg-sand-50 border border-sand-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-ink-900 flex items-center gap-1.5">
+                    <Plus className="w-3.5 h-3.5 text-green-700" />
+                    <span>New Farm Field Details (POST /api/fields)</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingNewField(false)}
+                    className="text-xs text-ink-600 hover:text-ink-900"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <Input
+                  label="Field Name"
+                  required
+                  value={newFieldName}
+                  onChange={(e) => setNewFieldName(e.target.value)}
+                  placeholder="e.g. Mahaweli North Division"
+                  helperText="Field name must be at least 2 characters"
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Select
+                    label="Field District"
+                    required
+                    value={newFieldDistrict}
+                    onChange={(e) => setNewFieldDistrict(e.target.value)}
+                    options={SRI_LANKA_DISTRICTS.map((d) => ({ value: d, label: d }))}
+                  />
+
+                  <Input
+                    label="Description (Optional)"
+                    value={newFieldDescription}
+                    onChange={(e) => setNewFieldDescription(e.target.value)}
+                    placeholder="e.g. Irrigated paddy zone"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Select
               label="District"
               required
               value={district}
-              onChange={(e) => setDistrict(e.target.value)}
+              onChange={(e) => {
+                setDistrict(e.target.value);
+                if (isCreatingNewField && !newFieldDistrict) {
+                  setNewFieldDistrict(e.target.value);
+                }
+              }}
               options={SRI_LANKA_DISTRICTS.map((d) => ({ value: d, label: d }))}
               helperText="Determines weather and extension officer region"
             />
