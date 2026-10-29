@@ -80,7 +80,7 @@ export async function seedDatabase(): Promise<void> {
       EXECUTE FUNCTION prevent_audit_logs_modification();
     `);
 
-    // Delete plots (cascades to shared_plots, crop_cycles, farm_logs, inputs, harvests)
+    // Delete plots (cascades to shared_plots, crop_cycles, activity_logs, input_applications, harvests)
     // owned by seed farmers. This leaves non-seed user data untouched.
     await client.query(
       `DELETE FROM plots WHERE farmer_id IN (SELECT id FROM users WHERE email = ANY($1));`,
@@ -242,7 +242,7 @@ export async function seedDatabase(): Promise<void> {
       [plot1.id, 'Bg 358 White Samba', 'DOA Bg 358', '2026-05-10', '2026-09-15', 4800.0],
     );
 
-    // Active cycle with current logs and inputs
+    // Active cycle with current logs and input_applications
     const {
       rows: [cycle2],
     } = await client.query<{ id: string }>(
@@ -263,7 +263,7 @@ export async function seedDatabase(): Promise<void> {
     // 8. Seed Farm Logs
     logger.info('Seeding farm logs...');
     await client.query(
-      `INSERT INTO farm_logs (cycle_id, log_type, log_date, notes) VALUES
+      `INSERT INTO activity_logs (cycle_id, log_type, log_date, notes) VALUES
        ($1, 'observation', '2026-10-05', 'Land preparation completed and seedlings transplanted evenly across 2.45 hectares.'),
        ($1, 'irrigation', '2026-10-12', 'Maintained 5cm water level across all liyaddas from canal inflow.'),
        ($1, 'disease', '2026-10-20', 'Routine inspection: no signs of leaf blast or brown planthopper pest damage.'),
@@ -271,10 +271,10 @@ export async function seedDatabase(): Promise<void> {
       [cycle2.id, cycle3.id],
     );
 
-    // 9. Seed Inputs
-    logger.info('Seeding inputs...');
+    // 9. Seed input_applications
+    logger.info('Seeding input_applications...');
     await client.query(
-      `INSERT INTO inputs (cycle_id, input_type, name, quantity, unit, application_date, cost) VALUES
+      `INSERT INTO input_applications (cycle_id, input_type, name, quantity, unit, application_date, cost) VALUES
        ($1, 'seed', 'Certified At 362 Seed Paddy', 100.00, 'kg', '2026-10-01', 22000.00),
        ($1, 'fertilizer', 'Triple Super Phosphate (TSP)', 50.00, 'kg', '2026-10-06', 12500.00),
        ($1, 'organic_matter', 'Compost & Paddy Husk Ash', 500.00, 'kg', '2026-10-10', 8000.00);`,
