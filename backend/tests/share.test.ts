@@ -1,4 +1,8 @@
+import request from 'supertest';
+import { app } from '../src/app';
 import { pool } from '../src/db';
+import { authService } from '../src/services/auth.service';
+import { createAccessToken } from '../src/utils/token';
 import { shareService } from '../src/services/share.service';
 import { auditService } from '../src/services/audit.service';
 import { plotService } from '../src/services/plot.service';
@@ -613,6 +617,69 @@ describe('Plot Sharing, Revocation & Farmer Audit Trail Suite', () => {
       await expect(auditService.getFarmerAuditEvents(verifiedOfficer, {})).rejects.toThrow(
         Forbidden,
       );
+    });
+    it('returns 200 for a farmer accessing GET /api/audit', async () => {
+      const token = createAccessToken({
+        userId: farmerA.id,
+        role: farmerA.role,
+        email: farmerA.email,
+      });
+
+      jest.spyOn(authService, 'getMe').mockResolvedValue(farmerA);
+
+      let executedCountSql = '';
+      let executedDataSql = '';
+      let queryParams: unknown[] = [];
+
+      jest.spyOn(pool, 'query').mockImplementation(async (sql: unknown, params?: unknown) => {
+        const queryText = String(sql);
+        if (queryText.includes('COUNT(*)')) {
+          executedCountSql = queryText;
+          queryParams = (params || []) as unknown[];
+          return { rows: [{ count: '1' }], rowCount: 1 } as never;
+        }
+        if (queryText.includes('SELECT a.id')) {
+          executedDataSql = queryText;
+          return {
+            rows: [
+              {
+                id: 'audit-01',
+                user_id: farmerA.id,
+                action: 'plot_created',
+                entity_type: 'plots',
+                entity_id: plotA1.id,
+                metadata: { plotName: 'Paddy Field East' },
+                ip_address: '127.0.0.1',
+                user_agent: 'Jest Test Agent',
+                created_at: new Date(),
+                actor_name: farmerA.fullName,
+                actor_role: 'farmer',
+              },
+            ],
+            rowCount: 1,
+          } as never;
+        }
+        return { rows: [], rowCount: 0 } as never;
+      });
+
+      const res = await request(app)
+        .get('/api/audit')
+        .set('Cookie', [`accessToken=${token}`]);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('data');
+      expect(res.body).toHaveProperty('pagination');
+      expect(res.body.pagination.total).toBe(1);
+      expect(res.body.data[0].id).toBe('audit-01');
+
+      // Verify explicit UUID and TEXT casts in SQL queries to prevent "operator does not exist: text = uuid"
+      expect(executedCountSql).toContain("(a.metadata->>'farmerId') = $1::text");
+      expect(executedCountSql).toContain('a.user_id = $1::uuid');
+      expect(executedCountSql).toContain('a.entity_id::uuid IN');
+      expect(executedDataSql).toContain("(a.metadata->>'farmerId') = $1::text");
+      expect(executedDataSql).toContain('a.user_id = $1::uuid');
+      expect(executedDataSql).toContain('a.entity_id::uuid IN');
+      expect(queryParams).toContain(farmerA.id);
     });
   });
 });

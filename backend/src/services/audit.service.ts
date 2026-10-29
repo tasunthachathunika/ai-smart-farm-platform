@@ -56,20 +56,21 @@ export class AuditService {
     let idx = 1;
 
     // Filter to events pertaining to this farmer:
-    // a) Actions performed by the farmer
+    // a) Actions performed by the farmer (user_id = $idx::uuid)
     // b) Actions performed on the farmer's plots (e.g. plot_viewed_by_officer)
     // c) Actions on shared_plots referencing the farmer's plots
     // d) Metadata referencing the farmer's ID or plots
+    // Explicit casts prevent Postgres "operator does not exist: text = uuid" errors
     conditions.push(`(
-      a.user_id = $${idx}
-      OR a.entity_id IN (SELECT id FROM plots WHERE farmer_id = $${idx})
-      OR (a.action = 'plot_viewed_by_officer' AND a.entity_id IN (SELECT id FROM plots WHERE farmer_id = $${idx}))
-      OR (a.entity_type = 'shared_plots' AND a.entity_id IN (
+      a.user_id = $${idx}::uuid
+      OR a.entity_id::uuid IN (SELECT id FROM plots WHERE farmer_id = $${idx}::uuid)
+      OR (a.action = 'plot_viewed_by_officer' AND a.entity_id::uuid IN (SELECT id FROM plots WHERE farmer_id = $${idx}::uuid))
+      OR (a.entity_type = 'shared_plots' AND a.entity_id::uuid IN (
           SELECT sp.id FROM shared_plots sp
           JOIN plots p ON p.id = sp.plot_id
-          WHERE p.farmer_id = $${idx}
+          WHERE p.farmer_id = $${idx}::uuid
       ))
-      OR (a.metadata->>'farmerId' = $${idx})
+      OR ((a.metadata->>'farmerId') = $${idx}::text)
     )`);
     params.push(user.id);
     idx++;
@@ -122,7 +123,7 @@ export class AuditService {
       ORDER BY a.created_at DESC
       LIMIT $${idx++} OFFSET $${idx++};
     `;
-    params.push(limit, offset);
+    const dataParams = [...params, limit, offset];
 
     const { rows } = await pool.query<{
       id: string;
@@ -136,7 +137,7 @@ export class AuditService {
       created_at: Date;
       actor_name: string | null;
       actor_role: string | null;
-    }>(dataSql, params);
+    }>(dataSql, dataParams);
 
     const events: AuditEventData[] = rows.map((r) => ({
       id: r.id,
