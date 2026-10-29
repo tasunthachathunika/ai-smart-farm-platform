@@ -13,7 +13,7 @@ export interface AppShellProps {
 
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   return (
-    <div className="min-h-screen bg-sand-50 flex flex-col md:flex-row text-ink-900">
+    <div className="min-h-screen bg-sand-50 flex flex-col lg:flex-row text-ink-900">
       {/* Skip to Main Content Link for Keyboard / Screen Reader Accessibility */}
       <a
         href="#main-content"
@@ -40,7 +40,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 md:pb-8 max-w-7xl w-full mx-auto focus:outline-none"
+          className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-7xl w-full mx-auto focus:outline-none"
         >
           {children}
         </main>

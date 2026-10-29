@@ -42,7 +42,7 @@ export const Sidebar: React.FC = () => {
     <aside
       aria-label="Desktop application sidebar"
       className={cn(
-        'hidden md:flex flex-col bg-white border-r border-sand-200 transition-all duration-300 select-none z-30 shrink-0 h-screen sticky top-0',
+        'hidden lg:flex flex-col bg-white border-r border-sand-200 transition-all duration-300 select-none z-30 shrink-0 h-screen sticky top-0',
         isCollapsed ? 'w-20' : 'w-64'
       )}
     >

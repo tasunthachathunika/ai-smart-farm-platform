@@ -2,6 +2,7 @@ export * from './AppShell';
 export * from './Sidebar';
 export * from './MobileTopBar';
 export * from './MobileBottomNav';
+export * from './MobileNavDrawer';
 export * from './OfflineBanner';
 export * from './LanguageSwitcher';
 export * from './SessionExpiredModal';
