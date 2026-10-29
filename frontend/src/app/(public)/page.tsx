@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
+  Menu,
+  X,
   MapPin,
   ClipboardList,
   FlaskConical,
@@ -27,6 +29,18 @@ import { LanguageSwitcher } from '@/components/shell/LanguageSwitcher';
 export default function LandingPage() {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [mockShareRevoked, setMockShareRevoked] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileMenuOpen]);
 
   const toggleFaq = (index: number) => {
     setOpenFaqIndex(openFaqIndex === index ? null : index);
@@ -97,9 +111,9 @@ export default function LandingPage() {
             </a>
           </nav>
 
-          {/* Language Switcher Stub + Auth CTAs */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <LanguageSwitcher className="hidden sm:inline-flex" />
+          {/* Desktop Actions */}
+          <div className="hidden md:flex items-center gap-3">
+            <LanguageSwitcher />
 
             <Link href="/login">
               <Button variant="secondary" size="sm">
@@ -113,7 +127,92 @@ export default function LandingPage() {
               </Button>
             </Link>
           </div>
+
+          {/* Mobile Hamburger Button */}
+          <div className="flex md:hidden items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="public-mobile-nav"
+              className="p-2.5 rounded-card text-ink-700 hover:text-ink-900 hover:bg-sand-100 min-h-touch min-w-touch flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 transition-colors"
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-6 h-6" aria-hidden="true" />
+              ) : (
+                <Menu className="w-6 h-6" aria-hidden="true" />
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Mobile Dropdown Navigation Menu */}
+        {isMobileMenuOpen && (
+          <div
+            id="public-mobile-nav"
+            className="md:hidden border-t border-sand-200 bg-white px-4 py-5 shadow-xl animate-in slide-in-from-top-2 duration-200"
+          >
+            <nav aria-label="Mobile Navigation" className="flex flex-col space-y-2">
+              <a
+                href="#features"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="px-3 py-2.5 text-base font-semibold text-ink-700 hover:text-green-700 hover:bg-sand-50 rounded-card transition-colors min-h-touch flex items-center"
+              >
+                Features
+              </a>
+              <a
+                href="#how-it-works"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="px-3 py-2.5 text-base font-semibold text-ink-700 hover:text-green-700 hover:bg-sand-50 rounded-card transition-colors min-h-touch flex items-center"
+              >
+                How It Works
+              </a>
+              <a
+                href="#ai-safety"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="px-3 py-2.5 text-base font-semibold text-ink-700 hover:text-green-700 hover:bg-sand-50 rounded-card transition-colors min-h-touch flex items-center"
+              >
+                Responsible AI
+              </a>
+              <a
+                href="#privacy"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="px-3 py-2.5 text-base font-semibold text-ink-700 hover:text-green-700 hover:bg-sand-50 rounded-card transition-colors min-h-touch flex items-center"
+              >
+                Privacy &amp; Consent
+              </a>
+              <a
+                href="#faq"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="px-3 py-2.5 text-base font-semibold text-ink-700 hover:text-green-700 hover:bg-sand-50 rounded-card transition-colors min-h-touch flex items-center"
+              >
+                FAQ
+              </a>
+            </nav>
+
+            <div className="pt-4 mt-3 border-t border-sand-200 space-y-3">
+              <div className="flex items-center justify-between px-3">
+                <span className="text-xs font-semibold text-ink-600">Language:</span>
+                <LanguageSwitcher />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="w-full">
+                  <Button variant="secondary" className="w-full justify-center">
+                    Log in
+                  </Button>
+                </Link>
+
+                <Link href="/register" onClick={() => setIsMobileMenuOpen(false)} className="w-full">
+                  <Button variant="primary" className="w-full justify-center">
+                    Get started
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* 2. HERO SECTION */}
