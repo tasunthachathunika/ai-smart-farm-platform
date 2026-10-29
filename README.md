@@ -43,7 +43,14 @@ docker compose down -v
 docker compose up --build -d
 ```
 
-### 2. Verify Service Health
+### 2. Seed Demo Data (Optional)
+Migrations run automatically on startup. To seed demo accounts and sample data:
+```bash
+docker compose exec backend npm run seed
+```
+The seed is **idempotent** — it can be re-run safely without duplicating data.
+
+### 3. Verify Service Health
 ```bash
 docker compose ps
 ```
@@ -55,7 +62,7 @@ goviya_frontend     ai-smart-farm-frontend "node server.js"         frontend   U
 goviya_postgres     postgres:16-alpine     "docker-entrypoint.s…"   db         Up (healthy)
 ```
 
-### 3. Stop All Services
+### 4. Stop All Services
 ```bash
 # Stop containers and preserve database volume
 docker compose down
@@ -103,8 +110,8 @@ cp backend/.env.example backend/.env
 cd backend
 npm install
 npm run build
-npm run migrate
-npm run seed
+npm run migrate:dev    # or: npm run migrate (requires prior build)
+npm run seed:dev       # or: npm run seed (requires prior build)
 npm run dev
 ```
 The backend API starts on `http://localhost:5000/api`.

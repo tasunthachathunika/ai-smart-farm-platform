@@ -6,6 +6,48 @@ import { runMigrations } from './migrate';
 
 export const DEMO_PASSWORD = 'DemoUser@2026!';
 
+/** Seed user emails — used to scope cleanup of child data. */
+const SEED_EMAILS = [
+  'admin@goviya.lk',
+  'aruna.officer@goviya.lk',
+  'chathuri.officer@goviya.lk',
+  'kavinda.officer@goviya.lk',
+  'sunil.farmer@goviya.lk',
+  'anula.farmer@goviya.lk',
+];
+
+/**
+ * Upsert a user by email. On conflict updates everything except the primary
+ * key and email, and resets lockout state so seeded accounts are always
+ * immediately usable.
+ */
+async function upsertUser(
+  client: import('pg').PoolClient,
+  email: string,
+  passwordHash: string,
+  fullName: string,
+  phone: string,
+  role: string,
+  isVerified: boolean,
+): Promise<string> {
+  const { rows } = await client.query<{ id: string }>(
+    `INSERT INTO users (email, password_hash, full_name, phone, role, is_verified, is_active, failed_login_attempts, locked_until)
+     VALUES ($1, $2, $3, $4, $5::user_role, $6, true, 0, NULL)
+     ON CONFLICT (email) DO UPDATE SET
+       password_hash = EXCLUDED.password_hash,
+       full_name = EXCLUDED.full_name,
+       phone = EXCLUDED.phone,
+       role = EXCLUDED.role,
+       is_verified = EXCLUDED.is_verified,
+       is_active = true,
+       failed_login_attempts = 0,
+       locked_until = NULL
+     RETURNING id;`,
+    [email, passwordHash, fullName, phone, role, isVerified],
+  );
+  return rows[0].id;
+}
+
 export async function seedDatabase(): Promise<void> {
   logger.info('Starting database seed...');
 
@@ -16,13 +58,21 @@ export async function seedDatabase(): Promise<void> {
   try {
     await client.query('BEGIN');
 
-    // Clean existing test data (respecting append-only trigger by temporarily disabling it for re-seed)
-    logger.info('Clearing old seed data...');
-    await client.query('DROP TRIGGER IF EXISTS trg_audit_logs_immutable ON audit_logs;');
-    await client.query('TRUNCATE TABLE audit_logs CASCADE;');
-    await client.query('TRUNCATE TABLE users CASCADE;'); // cascades to plots, shared_plots, cycles, etc.
+    // 2. Clean existing seed data for child tables owned by seed users.
+    //    This is safe because we only delete data belonging to seed accounts,
+    //    not data created by real users in the same database.
+    logger.info('Cleaning child data for seed users...');
 
-    // Re-create immutable trigger on audit_logs
+    // Temporarily disable the append-only audit trigger so we can remove
+    // seed-generated audit entries.
+    await client.query('DROP TRIGGER IF EXISTS trg_audit_logs_immutable ON audit_logs;');
+
+    // Delete audit logs created by the seed script
+    await client.query(
+      `DELETE FROM audit_logs WHERE user_agent = 'GoviyaPlus/1.0 SeedScript';`,
+    );
+
+    // Re-create the immutable trigger immediately
     await client.query(`
       CREATE TRIGGER trg_audit_logs_immutable
       BEFORE UPDATE OR DELETE ON audit_logs
@@ -30,64 +80,90 @@ export async function seedDatabase(): Promise<void> {
       EXECUTE FUNCTION prevent_audit_logs_modification();
     `);
 
-    // 2. Hash default password with Argon2
+    // Delete plots (cascades to shared_plots, crop_cycles, farm_logs, inputs, harvests)
+    // owned by seed farmers. This leaves non-seed user data untouched.
+    await client.query(
+      `DELETE FROM plots WHERE farmer_id IN (SELECT id FROM users WHERE email = ANY($1));`,
+      [SEED_EMAILS],
+    );
+
+    // Delete shared_plots where officer is a seed user (covers officer-side references)
+    await client.query(
+      `DELETE FROM shared_plots WHERE officer_id IN (SELECT id FROM users WHERE email = ANY($1));`,
+      [SEED_EMAILS],
+    );
+
+    // 3. Hash default password with Argon2 (same function the login flow uses)
     const passwordHash = await argon2.hash(DEMO_PASSWORD);
 
-    // 3. Seed Users
-    logger.info('Seeding users...');
+    // 4. Upsert Users (idempotent by email)
+    logger.info('Upserting users...');
+
     // 1 Admin
-    const {
-      rows: [admin],
-    } = await client.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, full_name, phone, role, is_verified)
-       VALUES ($1, $2, $3, $4, 'admin', true) RETURNING id;`,
-      ['admin@goviya.lk', passwordHash, 'Nalaka Admin', '+94771000001'],
+    const adminId = await upsertUser(
+      client,
+      'admin@goviya.lk',
+      passwordHash,
+      'Nalaka Admin',
+      '+94771000001',
+      'admin',
+      true,
     );
 
     // 2 Verified Officers
-    const {
-      rows: [officer1],
-    } = await client.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, full_name, phone, role, is_verified)
-       VALUES ($1, $2, $3, $4, 'officer', true) RETURNING id;`,
-      ['aruna.officer@goviya.lk', passwordHash, 'Aruna Wickramasinghe', '+94771000002'],
+    const officer1Id = await upsertUser(
+      client,
+      'aruna.officer@goviya.lk',
+      passwordHash,
+      'Aruna Wickramasinghe',
+      '+94771000002',
+      'officer',
+      true,
     );
 
-    const {
-      rows: [officer2],
-    } = await client.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, full_name, phone, role, is_verified)
-       VALUES ($1, $2, $3, $4, 'officer', true) RETURNING id;`,
-      ['chathuri.officer@goviya.lk', passwordHash, 'Chathuri Jayasuriya', '+94771000003'],
+    const officer2Id = await upsertUser(
+      client,
+      'chathuri.officer@goviya.lk',
+      passwordHash,
+      'Chathuri Jayasuriya',
+      '+94771000003',
+      'officer',
+      true,
     );
 
-    // 1 Unverified Officer
-    const {
-      rows: [unverifiedOfficer],
-    } = await client.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, full_name, phone, role, is_verified)
-       VALUES ($1, $2, $3, $4, 'officer', false) RETURNING id;`,
-      ['kavinda.officer@goviya.lk', passwordHash, 'Kavinda Senanayake', '+94771000004'],
+    // 1 Pending (unverified) Officer
+    const unverifiedOfficerId = await upsertUser(
+      client,
+      'kavinda.officer@goviya.lk',
+      passwordHash,
+      'Kavinda Senanayake',
+      '+94771000004',
+      'officer',
+      false,
     );
 
     // 2 Farmers
-    const {
-      rows: [farmer1],
-    } = await client.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, full_name, phone, role, is_verified)
-       VALUES ($1, $2, $3, $4, 'farmer', true) RETURNING id;`,
-      ['sunil.farmer@goviya.lk', passwordHash, 'Sunil Bandara', '+94771000005'],
+    const farmer1Id = await upsertUser(
+      client,
+      'sunil.farmer@goviya.lk',
+      passwordHash,
+      'Sunil Bandara',
+      '+94771000005',
+      'farmer',
+      true,
     );
 
-    const {
-      rows: [farmer2],
-    } = await client.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, full_name, phone, role, is_verified)
-       VALUES ($1, $2, $3, $4, 'farmer', true) RETURNING id;`,
-      ['anula.farmer@goviya.lk', passwordHash, 'Anula Kumari', '+94771000006'],
+    const farmer2Id = await upsertUser(
+      client,
+      'anula.farmer@goviya.lk',
+      passwordHash,
+      'Anula Kumari',
+      '+94771000006',
+      'farmer',
+      true,
     );
 
-    // 4. Seed Plots with AES-256-GCM encrypted GPS coordinates
+    // 5. Seed Plots with AES-256-GCM encrypted GPS coordinates
     logger.info('Seeding plots...');
     const gps1 = encryptGps(JSON.stringify({ lat: 7.4863, lng: 80.3623 }));
     const {
@@ -96,7 +172,7 @@ export async function seedDatabase(): Promise<void> {
       `INSERT INTO plots (farmer_id, name, district, encrypted_gps, gps_iv, gps_auth_tag, area_ha, soil_type, irrigation_source)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id;`,
       [
-        farmer1.id,
+        farmer1Id,
         'Maha Ela Paddy Field',
         'Kurunegala',
         gps1.ciphertext,
@@ -113,7 +189,7 @@ export async function seedDatabase(): Promise<void> {
       `INSERT INTO plots (farmer_id, name, district, encrypted_gps, gps_iv, gps_auth_tag, area_ha, soil_type, irrigation_source)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
       [
-        farmer1.id,
+        farmer1Id,
         'Kandy Valley Highland',
         'Kandy',
         gps2.ciphertext,
@@ -132,7 +208,7 @@ export async function seedDatabase(): Promise<void> {
       `INSERT INTO plots (farmer_id, name, district, encrypted_gps, gps_iv, gps_auth_tag, area_ha, soil_type, irrigation_source)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id;`,
       [
-        farmer2.id,
+        farmer2Id,
         'Rajarata Veggie Garden',
         'Anuradhapura',
         gps3.ciphertext,
@@ -144,7 +220,7 @@ export async function seedDatabase(): Promise<void> {
       ],
     );
 
-    // 5. Seed 1 Active Share (Farmer 1 shares Plot 1 with Verified Officer 1)
+    // 6. Seed Active Share (Farmer 1 shares Plot 1 with Verified Officer 1)
     logger.info('Seeding active plot share...');
     const {
       rows: [share1],
@@ -152,10 +228,10 @@ export async function seedDatabase(): Promise<void> {
       `INSERT INTO shared_plots (plot_id, officer_id, scope, granted_at, expires_at, revoked_at)
        VALUES ($1, $2, 'advisory', NOW() - INTERVAL '3 days', NOW() + INTERVAL '27 days', NULL)
        RETURNING id;`,
-      [plot1.id, officer1.id],
+      [plot1.id, officer1Id],
     );
 
-    // 6. Seed Crop Cycles
+    // 7. Seed Crop Cycles
     logger.info('Seeding crop cycles...');
     // Completed cycle with harvest
     const {
@@ -184,7 +260,7 @@ export async function seedDatabase(): Promise<void> {
       [plot3.id, 'MI-2 Green Chili', 'Maha Illuppallama 2', '2026-08-15', 1500.0],
     );
 
-    // 7. Seed Farm Logs
+    // 8. Seed Farm Logs
     logger.info('Seeding farm logs...');
     await client.query(
       `INSERT INTO farm_logs (cycle_id, log_type, log_date, notes) VALUES
@@ -195,7 +271,7 @@ export async function seedDatabase(): Promise<void> {
       [cycle2.id, cycle3.id],
     );
 
-    // 8. Seed Inputs
+    // 9. Seed Inputs
     logger.info('Seeding inputs...');
     await client.query(
       `INSERT INTO inputs (cycle_id, input_type, name, quantity, unit, application_date, cost) VALUES
@@ -205,7 +281,7 @@ export async function seedDatabase(): Promise<void> {
       [cycle2.id],
     );
 
-    // 9. Seed Harvests (for completed Cycle 1)
+    // 10. Seed Harvests (for completed Cycle 1)
     logger.info('Seeding harvests...');
     await client.query(
       `INSERT INTO harvests (cycle_id, harvest_date, quantity, unit, quality_grade, revenue, notes) VALUES
@@ -213,13 +289,13 @@ export async function seedDatabase(): Promise<void> {
       [cycle1.id],
     );
 
-    // 10. Seed Audit Log (Append-only)
-    logger.info('Seeding audit logs...');
+    // 11. Seed Audit Log (append-only)
+    logger.info('Seeding audit log entry...');
     await client.query(
       `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, metadata, ip_address, user_agent)
        VALUES ($1, 'share_grant', 'shared_plots', $2, $3, '127.0.0.1', 'GoviyaPlus/1.0 SeedScript');`,
       [
-        farmer1.id,
+        farmer1Id,
         share1.id,
         JSON.stringify({
           plot_name: 'Maha Ela Paddy Field',
@@ -232,11 +308,11 @@ export async function seedDatabase(): Promise<void> {
     await client.query('COMMIT');
     logger.info('Database seeded successfully!');
     logger.info(`Summary:
-  - 1 Admin: admin@goviya.lk (ID: ${admin.id})
-  - 2 Verified Officers: aruna.officer@goviya.lk (${officer1.id}), chathuri.officer@goviya.lk (${officer2.id})
-  - 1 Unverified Officer: kavinda.officer@goviya.lk (${unverifiedOfficer.id})
-  - 2 Farmers: sunil.farmer@goviya.lk (${farmer1.id}), anula.farmer@goviya.lk (${farmer2.id})
-  - 1 Active Share: Plot '${plot1.id}' shared with Officer '${officer1.id}'
+  - 1 Admin: admin@goviya.lk (ID: ${adminId})
+  - 2 Verified Officers: aruna.officer@goviya.lk (${officer1Id}), chathuri.officer@goviya.lk (${officer2Id})
+  - 1 Unverified Officer: kavinda.officer@goviya.lk (${unverifiedOfficerId})
+  - 2 Farmers: sunil.farmer@goviya.lk (${farmer1Id}), anula.farmer@goviya.lk (${farmer2Id})
+  - 1 Active Share: Plot '${plot1.id}' shared with Officer '${officer1Id}'
   - Demo password for all accounts: ${DEMO_PASSWORD}`);
   } catch (error) {
     await client.query('ROLLBACK');
