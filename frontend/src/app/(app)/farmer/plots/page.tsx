@@ -119,7 +119,9 @@ export default function FarmerPlotsPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   // Plot Form fields
-  const [fieldName, setFieldName] = useState('');
+  const [plotName, setPlotName] = useState('');
+  const [plotNameError, setPlotNameError] = useState<string | null>(null);
+  const [plotNameTouched, setPlotNameTouched] = useState(false);
   const [plotFieldId, setPlotFieldId] = useState('');
   const [district, setDistrict] = useState('Anuradhapura');
   const [areaHa, setAreaHa] = useState('1.5');
@@ -172,7 +174,9 @@ export default function FarmerPlotsPage() {
 
   const openCreateModal = () => {
     setEditingPlot(null);
-    setFieldName('');
+    setPlotName('');
+    setPlotNameError(null);
+    setPlotNameTouched(false);
     setPlotFieldId('');
     setIsCreatingNewField(false);
     setNewFieldName('');
@@ -185,12 +189,15 @@ export default function FarmerPlotsPage() {
     setLatitude('8.3114');
     setLongitude('80.4037');
     setFormError(null);
+    setIsSubmitting(false);
     setIsModalOpen(true);
   };
 
   const openEditModal = (plot: Plot) => {
     setEditingPlot(plot);
-    setFieldName(plot.name);
+    setPlotName(plot.name);
+    setPlotNameError(null);
+    setPlotNameTouched(false);
     setPlotFieldId(plot.fieldId || '');
     setIsCreatingNewField(false);
     setNewFieldName('');
@@ -203,6 +210,7 @@ export default function FarmerPlotsPage() {
     setLatitude(plot.gps ? plot.gps.latitude.toString() : '8.3114');
     setLongitude(plot.gps ? plot.gps.longitude.toString() : '80.4037');
     setFormError(null);
+    setIsSubmitting(false);
     setIsModalOpen(true);
   };
 
@@ -232,12 +240,14 @@ export default function FarmerPlotsPage() {
     e.preventDefault();
     setFormError(null);
 
-    const trimmedName = fieldName.trim();
+    const trimmedName = plotName.trim();
     const parsedArea = parseFloat(areaHa);
     const parsedLat = parseFloat(latitude);
     const parsedLng = parseFloat(longitude);
 
     if (trimmedName.length < 2) {
+      setPlotNameTouched(true);
+      setPlotNameError('Plot name must be at least 2 characters.');
       setFormError('Plot name must be at least 2 characters.');
       return;
     }
@@ -563,17 +573,48 @@ export default function FarmerPlotsPage() {
             </Alert>
           )}
 
-          <Input
-            label="Plot Name"
-            required
-            value={fieldName}
-            onChange={(e) => setFieldName(e.target.value)}
-            placeholder="e.g. Mahaweli North Acre 1"
-            helperText="Plot name must be at least 2 characters"
-          />
+          <div className="relative z-0">
+            <Input
+              id="plot-name"
+              name="plotName"
+              label="Plot Name"
+              required
+              autoFocus
+              value={plotName}
+              onChange={(e) => {
+                const val = e.target.value;
+                setPlotName(val);
+                if (formError) setFormError(null);
+                if (plotNameTouched) {
+                  const trimmed = val.trim();
+                  if (trimmed.length >= 2) {
+                    setPlotNameError(null);
+                  } else if (trimmed.length === 0) {
+                    setPlotNameError('Plot name is required.');
+                  } else {
+                    setPlotNameError('Plot name must be at least 2 characters.');
+                  }
+                }
+              }}
+              onBlur={() => {
+                setPlotNameTouched(true);
+                const trimmed = plotName.trim();
+                if (trimmed.length === 0) {
+                  setPlotNameError('Plot name is required.');
+                } else if (trimmed.length < 2) {
+                  setPlotNameError('Plot name must be at least 2 characters.');
+                } else {
+                  setPlotNameError(null);
+                }
+              }}
+              error={plotNameError || undefined}
+              placeholder="e.g. Mahaweli North Acre 1"
+              helperText="Plot name must be at least 2 characters"
+            />
+          </div>
 
           {/* Associated Farm Field with Create/Select */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {!editingPlot && !isCreatingNewField && (
               <div className="flex justify-end">
                 <button
@@ -582,7 +623,7 @@ export default function FarmerPlotsPage() {
                     setIsCreatingNewField(true);
                     setNewFieldDistrict(district);
                   }}
-                  className="text-xs font-bold text-green-700 hover:text-green-800 -mb-2"
+                  className="text-xs font-bold text-green-700 hover:text-green-800 transition-colors"
                 >
                   + Create New Farm Field
                 </button>

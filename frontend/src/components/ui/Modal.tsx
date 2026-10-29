@@ -69,9 +69,16 @@ export const Modal: React.FC<ModalProps> = ({
 
     document.addEventListener('keydown', handleKeyDown);
 
-    // Initial focus on the modal container or first interactive element
+    // Initial focus on autofocus element, first interactive input, or modal container
     const timeoutId = setTimeout(() => {
       if (modalRef.current) {
+        const preferredFocus = modalRef.current.querySelector<HTMLElement>(
+          '[autofocus], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])'
+        );
+        if (preferredFocus) {
+          preferredFocus.focus();
+          return;
+        }
         const firstFocusable = modalRef.current.querySelector<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
         );
