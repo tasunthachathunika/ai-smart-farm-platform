@@ -9,11 +9,14 @@ import { ApiError } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
+import { LanguageSwitcher } from '@/components/shell/LanguageSwitcher';
+import { useI18n } from '@/i18n';
 
 function LoginFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, isLoading } = useAuthStore();
+  const { t } = useI18n();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,9 +40,9 @@ function LoginFormContent() {
   // Display session expiration notification
   useEffect(() => {
     if (isExpired) {
-      setGenericError('Your secure session has expired. Please sign in again.');
+      setGenericError(t('auth.sessionExpiredDescription'));
     }
-  }, [isExpired]);
+  }, [isExpired, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,21 +104,24 @@ function LoginFormContent() {
   return (
     <main className="min-h-screen bg-sand-50 text-ink-900 flex flex-col justify-center items-center px-4 py-8">
       <div className="w-full max-w-md space-y-6">
+        {/* Top bar with language switcher */}
+        <div className="flex justify-end">
+          <LanguageSwitcher />
+        </div>
+
         {/* Brand Header */}
         <div className="text-center space-y-1">
           <Link href="/" className="inline-flex items-center gap-2 text-3xl font-extrabold text-green-700">
             <span aria-hidden="true">🌾</span>
-            <span>Goviya Plus</span>
+            <span>{t('common.appName')}</span>
           </Link>
-          <p className="text-sm text-ink-600">Keep your farm records. Stay in control.</p>
+          <p className="text-sm text-ink-600">{t('common.tagline')}</p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl">Sign in to your account</CardTitle>
-            <CardDescription>
-              Enter your registered credentials to access your plots and advisory notes.
-            </CardDescription>
+            <CardTitle className="text-xl">{t('auth.signIn')}</CardTitle>
+            <CardDescription>{t('auth.signInSubtitle')}</CardDescription>
           </CardHeader>
           <CardContent>
             {/* Account Lockout Alert */}
@@ -155,7 +161,7 @@ function LoginFormContent() {
               {/* Email with AutoFocus */}
               <div className="flex flex-col gap-1.5 w-full">
                 <label htmlFor="login-email" className="text-sm font-semibold text-ink-900">
-                  Email Address <span className="text-status-danger" aria-hidden="true">*</span>
+                  {t('auth.email')} <span className="text-status-danger" aria-hidden="true">*</span>
                 </label>
                 <input
                   ref={emailInputRef}
@@ -173,7 +179,7 @@ function LoginFormContent() {
               {/* Password with Visibility Toggle */}
               <div className="flex flex-col gap-1.5 w-full">
                 <label htmlFor="login-password" className="text-sm font-semibold text-ink-900">
-                  Password <span className="text-status-danger" aria-hidden="true">*</span>
+                  {t('auth.password')} <span className="text-status-danger" aria-hidden="true">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -207,14 +213,13 @@ function LoginFormContent() {
                 className="w-full mt-2 font-bold"
                 leftIcon={<LogIn className="w-4 h-4" />}
               >
-                Sign In
+                {t('auth.signIn')}
               </Button>
             </form>
 
             <div className="mt-6 pt-4 border-t border-sand-200 text-center text-sm text-ink-600">
-              Don&apos;t have an account?{' '}
               <Link href="/register" className="font-bold text-green-700 hover:text-green-800 underline">
-                Register here
+                {t('auth.dontHaveAccount')}
               </Link>
             </div>
           </CardContent>

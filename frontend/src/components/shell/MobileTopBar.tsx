@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { LogOut } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { useI18n } from '@/i18n';
 
 export const MobileTopBar: React.FC = () => {
   const { user, logout } = useAuthStore();
+  const { t } = useI18n();
 
   if (!user) return null;
 
@@ -18,7 +20,7 @@ export const MobileTopBar: React.FC = () => {
           🌾
         </span>
         <span className="font-extrabold text-base text-green-700 tracking-tight">
-          Goviya Plus
+          {t('common.appName')}
         </span>
       </Link>
 
@@ -28,8 +30,9 @@ export const MobileTopBar: React.FC = () => {
         <button
           type="button"
           onClick={() => logout()}
-          aria-label="Sign out"
+          aria-label={t('common.signOut')}
           className="p-2 rounded-card text-status-danger hover:bg-status-danger-bg min-h-touch min-w-touch flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger"
+          title={t('common.signOut')}
         >
           <LogOut className="w-5 h-5" aria-hidden="true" />
         </button>

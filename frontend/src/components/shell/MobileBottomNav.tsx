@@ -6,14 +6,16 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/useAuthStore';
 import { navItemsByRole } from './navConfig';
+import { useI18n } from '@/i18n';
 
 export const MobileBottomNav: React.FC = () => {
   const pathname = usePathname();
   const { user } = useAuthStore();
+  const { t } = useI18n();
 
   if (!user) return null;
 
-  // Filter 4-5 key items designated for bottom nav
+  // Filter key items designated for bottom nav
   const items = (navItemsByRole[user.role] || []).filter((item) => item.isBottomNav);
 
   return (
@@ -27,6 +29,7 @@ export const MobileBottomNav: React.FC = () => {
         const isActive =
           pathname === item.href ||
           (item.href !== `/${user.role}` && pathname.startsWith(item.href));
+        const translatedLabel = item.i18nKey ? t(item.i18nKey) : item.label;
 
         return (
           <Link
@@ -53,7 +56,7 @@ export const MobileBottomNav: React.FC = () => {
               )}
             </div>
             <span className="text-[11px] mt-1 tracking-tight truncate max-w-[64px]">
-              {item.label}
+              {translatedLabel}
             </span>
           </Link>
         );

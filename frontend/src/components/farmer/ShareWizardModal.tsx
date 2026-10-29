@@ -24,6 +24,7 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { farmService } from '@/services/farmService';
 import { shareService } from '@/services/shareService';
 import { Plot, ShareScope } from '@/types/farm';
+import { useI18n } from '@/i18n';
 
 export interface ShareWizardModalProps {
   isOpen: boolean;
@@ -116,6 +117,7 @@ export const ShareWizardModal: React.FC<ShareWizardModalProps> = ({
   onSuccess,
   initialPlotId,
 }) => {
+  const { t } = useI18n();
   // Step navigation
   const [currentStep, setCurrentStep] = useState<Step>(1);
 
@@ -727,33 +729,33 @@ export const ShareWizardModal: React.FC<ShareWizardModalProps> = ({
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-green-700" />
                 <h4 className="text-xs font-extrabold text-ink-900 uppercase tracking-wide">
-                  Plain-Language Consent Summary
+                  {t('consent.summaryTitle')}
                 </h4>
               </div>
 
               <div className="p-3 bg-white rounded-lg border border-sand-200 text-xs text-ink-900 space-y-2 leading-relaxed">
                 <p>
-                  You are giving Officer{' '}
+                  {t('consent.summaryPrefix')}{' '}
                   <strong className="text-green-800">
                     {selectedOfficer?.fullName || 'Selected Extension Officer'}
                   </strong>{' '}
-                  read-only access to{' '}
-                  <strong className="text-green-800">{summaryScopeNames}</strong> until{' '}
+                  {t('consent.summaryReadAccess')}{' '}
+                  <strong className="text-green-800">{summaryScopeNames}</strong> {t('consent.summaryUntil')}{' '}
                   <strong className="text-green-800">{summaryDateString}</strong>.
                 </p>
                 <p className="text-ink-600">
-                  You can stop sharing any time. Revocation takes effect on the officer&apos;s very next request.
+                  {t('consent.summaryRevokeNotice')}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-xs text-ink-600 pt-1">
                 <div className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-green-700 shrink-0" />
-                  <span>Exact GPS hidden</span>
+                  <Lock className="w-4 h-4 text-green-700 shrink-0" />
+                  <span>{t('consent.gpsPrivacyNotice')}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Lock className="w-4 h-4 text-green-700 shrink-0" />
-                  <span>Logged in immutable audit</span>
+                  <ShieldCheck className="w-4 h-4 text-green-700 shrink-0" />
+                  <span>{t('consent.immutableAuditNotice')}</span>
                 </div>
               </div>
             </div>

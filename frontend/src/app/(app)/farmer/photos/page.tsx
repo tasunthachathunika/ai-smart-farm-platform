@@ -1,14 +1,23 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { MapPin, Plus } from 'lucide-react';
 import { farmService } from '@/services/farmService';
 import { Plot } from '@/types/farm';
-import { PhotoManager } from '@/components/farmer/PhotoManager';
 import { Select } from '@/components/ui/Select';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+
+// Dynamically import heavy PhotoManager component (image compression, upload pipeline, lightbox)
+const PhotoManager = dynamic(
+  () => import('@/components/farmer/PhotoManager').then((mod) => mod.PhotoManager),
+  {
+    loading: () => <Skeleton className="h-64 w-full rounded-card" />,
+    ssr: false,
+  }
+);
 
 export default function FarmerPhotosPage() {
   const router = useRouter();

@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-export type SupportedLocale = 'en' | 'si' | 'ta';
+import { useI18n, SupportedLocale } from '@/i18n';
 
 interface LanguageOption {
   code: SupportedLocale;
@@ -19,12 +18,12 @@ const languages: LanguageOption[] = [
 ];
 
 export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className }) => {
-  const [currentLocale, setCurrentLocale] = useState<SupportedLocale>('en');
+  const { locale, setLocale } = useI18n();
 
   return (
     <div
       role="group"
-      aria-label="Language selector stub"
+      aria-label="Language selector"
       className={cn(
         'inline-flex items-center rounded-card bg-sand-200/80 p-0.5 border border-sand-200',
         className
@@ -34,12 +33,12 @@ export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className }
         <Globe className="w-3.5 h-3.5" />
       </div>
       {languages.map((lang) => {
-        const isActive = currentLocale === lang.code;
+        const isActive = locale === lang.code;
         return (
           <button
             key={lang.code}
             type="button"
-            onClick={() => setCurrentLocale(lang.code)}
+            onClick={() => setLocale(lang.code)}
             aria-pressed={isActive}
             className={cn(
               'px-2.5 py-1 text-xs font-semibold rounded-[10px] transition-all min-h-[36px] flex items-center justify-center',

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Camera,
   Plus,
@@ -17,7 +18,14 @@ import {
 import { farmService } from '@/services/farmService';
 import { Photo } from '@/types/farm';
 import { api, ApiError, normalizeError } from '@/lib/api';
-import { PhotoUploader } from '@/components/ui/PhotoUploader';
+// Dynamically import heavy PhotoUploader component (canvas compression & EXIF stripping)
+const PhotoUploader = dynamic(
+  () => import('@/components/ui/PhotoUploader').then((mod) => mod.PhotoUploader),
+  {
+    loading: () => <Skeleton className="h-48 w-full rounded-card" />,
+    ssr: false,
+  }
+);
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';

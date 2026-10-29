@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import {
@@ -45,8 +46,22 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Table } from '@/components/ui/Table';
-import { PhotoManager } from '@/components/farmer/PhotoManager';
-import { WeatherWidget } from '@/components/farmer/WeatherWidget';
+// Dynamically import heavy PhotoManager and WeatherWidget components
+const PhotoManager = dynamic(
+  () => import('@/components/farmer/PhotoManager').then((mod) => mod.PhotoManager),
+  {
+    loading: () => <Skeleton className="h-64 w-full rounded-card" />,
+    ssr: false,
+  }
+);
+
+const WeatherWidget = dynamic(
+  () => import('@/components/farmer/WeatherWidget').then((mod) => mod.WeatherWidget),
+  {
+    loading: () => <Skeleton className="h-48 w-full rounded-card" />,
+    ssr: false,
+  }
+);
 
 type TabKey = 'overview' | 'logs' | 'inputs' | 'harvests' | 'photos' | 'officer-notes';
 
