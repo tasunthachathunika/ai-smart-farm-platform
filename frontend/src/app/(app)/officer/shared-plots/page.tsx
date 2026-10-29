@@ -28,6 +28,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { Alert } from '@/components/ui/Alert';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Select } from '@/components/ui/Select';
+import { BackButton } from '@/components/ui/BackButton';
 
 const SCOPE_META: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
   crop_cycles: { label: 'Crop Cycles', icon: Layers },
@@ -135,6 +136,7 @@ export default function OfficerSharedPlotsPage() {
 
   return (
     <div className="space-y-6">
+      <BackButton fallbackHref="/officer" />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

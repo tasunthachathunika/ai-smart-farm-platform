@@ -25,6 +25,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Textarea } from '@/components/ui/Textarea';
+import { BackButton } from '@/components/ui/BackButton';
 
 type VerificationAction = 'approve' | 'reject' | 'suspend';
 
@@ -179,6 +180,7 @@ export default function AdminOfficersPage() {
 
   return (
     <div className="space-y-6">
+      <BackButton fallbackHref="/admin" />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

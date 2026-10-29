@@ -3,10 +3,12 @@
 import React from 'react';
 import { Lock, EyeOff, FileText } from 'lucide-react';
 import { ActiveSharesManager } from '@/components/farmer/ActiveSharesManager';
+import { BackButton } from '@/components/ui/BackButton';
 
 export default function FarmerSharingPage() {
   return (
     <div className="space-y-6">
+      <BackButton fallbackHref="/farmer" />
       {/* Page Title & Context */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-ink-900">Officer Record Sharing</h1>

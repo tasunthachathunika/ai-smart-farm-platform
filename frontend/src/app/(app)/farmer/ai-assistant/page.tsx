@@ -32,6 +32,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AIResultCard } from '@/components/ui/AIResultCard';
+import { BackButton } from '@/components/ui/BackButton';
 
 type AnalysisMode = 'summary' | 'visit_prep';
 
@@ -248,6 +249,7 @@ export default function FarmerAIAssistantPage() {
 
   return (
     <div className="space-y-6">
+      <BackButton fallbackHref="/farmer" />
       {/* Page Title & Context Header */}
       <div>
         <div className="flex items-center gap-2">

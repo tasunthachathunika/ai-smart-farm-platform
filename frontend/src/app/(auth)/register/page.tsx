@@ -21,6 +21,7 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Modal } from '@/components/ui/Modal';
+import { BackButton } from '@/components/ui/BackButton';
 import { LanguageSwitcher } from '@/components/shell/LanguageSwitcher';
 import { useI18n } from '@/i18n';
 
@@ -120,8 +121,9 @@ export default function RegisterPage() {
   return (
     <main className="min-h-screen bg-sand-50 text-ink-900 flex flex-col justify-center items-center px-4 py-8">
       <div className="w-full max-w-lg space-y-6">
-        {/* Top bar with language switcher */}
-        <div className="flex justify-end">
+        {/* Top bar with back to home button and language switcher */}
+        <div className="flex items-center justify-between">
+          <BackButton fallbackHref="/" label={t('common.backToHome')} />
           <LanguageSwitcher />
         </div>
 

@@ -2,10 +2,8 @@
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
   MapPin,
   ClipboardList,
   Eye,
@@ -46,6 +44,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Table } from '@/components/ui/Table';
+import { BackButton } from '@/components/ui/BackButton';
 // Dynamically import heavy PhotoManager and WeatherWidget components
 const PhotoManager = dynamic(
   () => import('@/components/farmer/PhotoManager').then((mod) => mod.PhotoManager),
@@ -386,13 +385,7 @@ function PlotDetailContent() {
   if (!plot) {
     return (
       <div className="space-y-4">
-        <Link
-          href="/farmer/plots"
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-green-700 hover:text-green-800 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to All Plots</span>
-        </Link>
+        <BackButton fallbackHref="/farmer/plots" label="Back to All Plots" />
         <EmptyState
           title="Plot Not Found"
           description="The requested plot does not exist, or you do not have permission to view it."
@@ -410,13 +403,7 @@ function PlotDetailContent() {
     <div className="space-y-6">
       {/* Top Navigation Back Link */}
       <div className="flex items-center justify-between gap-4">
-        <Link
-          href="/farmer/plots"
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-green-700 hover:text-green-800 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to All Plots</span>
-        </Link>
+        <BackButton fallbackHref="/farmer/plots" label="Back to All Plots" />
 
         {plot?.isShared ? (
           <Badge variant="shared" label="Shared with Extension Officer" />

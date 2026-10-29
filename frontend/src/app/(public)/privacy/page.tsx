@@ -1,18 +1,14 @@
+'use client';
+
 import React from 'react';
-import Link from 'next/link';
-import { ArrowLeft, Shield } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { BackButton } from '@/components/ui/BackButton';
 
 export default function PrivacyPolicyPage() {
   return (
     <main className="min-h-screen bg-sand-50 text-ink-900 px-4 py-8 max-w-2xl mx-auto space-y-6">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1.5 text-sm font-semibold text-green-700 hover:text-green-800"
-      >
-        <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-        <span>Back to Home</span>
-      </Link>
+      <BackButton fallbackHref="/" label="Back to Home" />
 
       <Card>
         <CardHeader>

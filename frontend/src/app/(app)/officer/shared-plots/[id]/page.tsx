@@ -43,6 +43,7 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 import { AIResultCard } from '@/components/ui/AIResultCard';
+import { BackButton } from '@/components/ui/BackButton';
 
 function SharedPlotDetailContent() {
   const params = useParams();
@@ -343,10 +344,7 @@ function SharedPlotDetailContent() {
   if (generalError || !plot) {
     return (
       <div className="space-y-4">
-        <Link href="/officer/shared-plots" className="inline-flex items-center gap-1.5 text-xs font-bold text-green-700">
-          <ArrowLeft className="w-4 h-4" />
-          Back to Shared Plots
-        </Link>
+        <BackButton fallbackHref="/officer/shared-plots" />
         <Alert variant="error" title="Error Loading Plot">
           {generalError || 'Plot details could not be retrieved.'}
         </Alert>
@@ -357,15 +355,7 @@ function SharedPlotDetailContent() {
   return (
     <div className="space-y-6">
       {/* Back button */}
-      <div>
-        <Link
-          href="/officer/shared-plots"
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-ink-600 hover:text-green-700 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Shared Plots Directory
-        </Link>
-      </div>
+      <BackButton fallbackHref="/officer/shared-plots" />
 
       {/* Requirement 2: Mandatory Farmer Sharing Banner */}
       <div className="p-4 bg-sand-100/90 border border-sand-300 rounded-card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-ink-900 shadow-sm">

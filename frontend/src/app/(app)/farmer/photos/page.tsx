@@ -9,6 +9,7 @@ import { Plot } from '@/types/farm';
 import { Select } from '@/components/ui/Select';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { BackButton } from '@/components/ui/BackButton';
 
 // Dynamically import heavy PhotoManager component (image compression, upload pipeline, lightbox)
 const PhotoManager = dynamic(
@@ -47,6 +48,7 @@ export default function FarmerPhotosPage() {
 
   return (
     <div className="space-y-6">
+      <BackButton fallbackHref="/farmer" />
       {/* Page Title & Context */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Select } from '@/components/ui/Select';
 import { Alert } from '@/components/ui/Alert';
+import { BackButton } from '@/components/ui/BackButton';
 
 interface AggregatedNote extends OfficerAdvisoryNote {
   plotName: string;
@@ -121,6 +122,7 @@ export default function OfficerNotesPage() {
 
   return (
     <div className="space-y-6">
+      <BackButton fallbackHref="/officer" />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

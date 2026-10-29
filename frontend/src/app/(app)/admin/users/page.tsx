@@ -23,6 +23,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { BackButton } from '@/components/ui/BackButton';
 
 const ROLE_OPTIONS = [
   { value: '', label: 'All Roles' },
@@ -165,6 +166,7 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
+      <BackButton fallbackHref="/admin" />
       {/* Page Title & Context */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

@@ -9,6 +9,7 @@ import { WeatherWidget } from '@/components/farmer/WeatherWidget';
 import { Select } from '@/components/ui/Select';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { BackButton } from '@/components/ui/BackButton';
 
 export default function FarmerWeatherPage() {
   const router = useRouter();
@@ -38,6 +39,7 @@ export default function FarmerWeatherPage() {
 
   return (
     <div className="space-y-6">
+      <BackButton fallbackHref="/farmer" />
       {/* Page Title & Context */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

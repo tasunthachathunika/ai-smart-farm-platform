@@ -5,12 +5,16 @@ import { ShieldAlert, Clock, LogOut } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { BackButton } from '@/components/ui/BackButton';
 
 export default function OfficerVerificationPendingPage() {
   const { user, logout } = useAuthStore();
 
   return (
     <div className="min-h-[70vh] flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-lg mb-4 flex justify-start">
+        <BackButton fallbackHref="/officer" />
+      </div>
       <Card className="max-w-lg w-full text-center p-6 space-y-4">
         <div className="w-16 h-16 rounded-full bg-status-warning-bg text-status-warning mx-auto flex items-center justify-center">
           <Clock className="w-8 h-8" />

@@ -11,7 +11,6 @@ import {
   Camera,
   MessageSquare,
   ArrowRight,
-  ArrowLeft,
   Search,
   CheckCircle2,
   Clock,
@@ -21,6 +20,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { DatePicker } from '@/components/ui/DatePicker';
+import { BackButton } from '@/components/ui/BackButton';
 import { farmService } from '@/services/farmService';
 import { shareService } from '@/services/shareService';
 import { Plot, ShareScope } from '@/types/farm';
@@ -530,6 +530,7 @@ export const ShareWizardModal: React.FC<ShareWizardModalProps> = ({
         {/* ---------------- STEP 2: Choose Plots & Scopes ---------------- */}
         {currentStep === 2 && (
           <div className="space-y-5">
+            <BackButton onClick={handleBack} label="Back to Officer Selection" />
             {/* Mandatory GPS Privacy Banner (Rule 4) */}
             <div className="p-3.5 bg-green-50 border border-green-300 rounded-card flex items-start gap-3 shadow-sm">
               <div className="p-1.5 rounded-full bg-green-100 text-green-800 shrink-0">
@@ -671,6 +672,7 @@ export const ShareWizardModal: React.FC<ShareWizardModalProps> = ({
         {/* ---------------- STEP 3: Expiry & Consent ---------------- */}
         {currentStep === 3 && (
           <div className="space-y-5">
+            <BackButton onClick={handleBack} label="Back to Plot & Scope Selection" />
             {/* Expiry Selection */}
             <div className="space-y-2">
               <label className="text-sm font-bold text-ink-900 flex items-center gap-1.5">
@@ -766,14 +768,7 @@ export const ShareWizardModal: React.FC<ShareWizardModalProps> = ({
         <div className="flex items-center justify-between pt-4 border-t border-sand-200">
           <div>
             {currentStep > 1 ? (
-              <Button
-                variant="ghost"
-                onClick={handleBack}
-                disabled={isSubmitting}
-                leftIcon={<ArrowLeft className="w-4 h-4" />}
-              >
-                Back
-              </Button>
+              <BackButton onClick={handleBack} label="Back" />
             ) : (
               <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>
                 Cancel

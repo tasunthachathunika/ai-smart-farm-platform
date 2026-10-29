@@ -26,6 +26,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { BackButton } from '@/components/ui/BackButton';
 
 const SRI_LANKA_DISTRICTS = [
   'Ampara',
@@ -249,6 +250,7 @@ export default function FarmerPlotsPage() {
 
   return (
     <div className="space-y-6">
+      <BackButton fallbackHref="/farmer" />
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

@@ -4,12 +4,14 @@ import React from 'react';
 import { Settings } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { useAuthStore } from '@/store/useAuthStore';
+import { BackButton } from '@/components/ui/BackButton';
 
 export default function FarmerSettingsPage() {
   const { user } = useAuthStore();
 
   return (
     <div className="space-y-6">
+      <BackButton fallbackHref="/farmer" />
       <div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-ink-900">Farmer Settings</h1>
         <p className="text-sm text-ink-600 mt-1">
