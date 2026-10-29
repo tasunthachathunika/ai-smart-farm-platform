@@ -409,6 +409,23 @@ describe('Responsible AI Service & Safety Pipeline Suite', () => {
       expect(response.body.flags).toContain('FALLBACK_USED');
       expect(response.body.data.summary).toContain('Automated records summary');
     });
+
+    it('returns non-AI fallback summary when LLM output violates schema (schema mismatch)', async () => {
+      mockLLMProvider.mockResponse = JSON.stringify({
+        unexpectedKey: 'This does not match SummaryResponse schema',
+        missingSummary: true,
+      });
+
+      const response = await request(app)
+        .post('/api/ai/summary')
+        .set('Cookie', [`accessToken=${farmerAToken}`])
+        .send({ plotId: plotA.id });
+
+      expect(response.status).toBe(200);
+      expect(response.body.isFallback).toBe(true);
+      expect(response.body.flags).toContain('FALLBACK_USED');
+      expect(response.body.data.summary).toContain('Automated records summary');
+    });
   });
 
   describe('6. Authorization, Officer Scopes & Admin Boundary', () => {
@@ -504,6 +521,72 @@ describe('Responsible AI Service & Safety Pipeline Suite', () => {
       expect(response.body.analysisType).toBe('visit_prep');
       expect(response.body.data.purpose).toBeDefined();
       expect(response.body.data.discussionQuestions.length).toBeGreaterThan(0);
+    });
+
+    it('guarantees other farmers data never appears in prompt sent to LLM', async () => {
+      mockLLMProvider.mockResponse = JSON.stringify({
+        summary: 'Safe test summary for Farmer A.',
+        keyObservations: [],
+        suggestedOfficerQuestions: [],
+        dataGaps: [],
+      });
+
+      const response = await request(app)
+        .post('/api/ai/summary')
+        .set('Cookie', [`accessToken=${farmerAToken}`])
+        .send({ plotId: plotA.id });
+
+      expect(response.status).toBe(200);
+      expect(mockLLMProvider.callCount).toBeGreaterThan(0);
+      const promptSentToLLM = (mockLLMProvider.lastOptions?.userPrompt || '') + ' ' + (mockLLMProvider.lastOptions?.systemPrompt || '');
+      // Ensure only Farmer A's plot info is included, never Farmer B or external data
+      expect(promptSentToLLM).toContain(plotA.name);
+      expect(promptSentToLLM).not.toContain('Farmer B');
+      expect(promptSentToLLM).not.toContain(farmerB.id);
+      expect(promptSentToLLM).not.toContain(farmerB.email);
+    });
+
+    it('ensures AI never writes or modifies farm records in the database', async () => {
+      const executedWriteQueries: string[] = [];
+
+      jest.spyOn(pool, 'query').mockImplementation(async (sql: unknown) => {
+        const queryText = String(sql);
+        const upper = queryText.toUpperCase();
+        // Check for state-changing farm records modifications
+        if (
+          (upper.includes('INSERT INTO') || upper.includes('UPDATE') || upper.includes('DELETE FROM')) &&
+          !upper.includes('INSERT INTO AI_ANALYSES') &&
+          !upper.includes('INSERT INTO AUDIT_LOGS')
+        ) {
+          executedWriteQueries.push(queryText);
+        }
+
+        if (queryText.includes('FROM plots WHERE id = $1')) {
+          return { rows: [plotA], rowCount: 1 } as never;
+        }
+        if (queryText.includes('FROM crop_cycles')) {
+          return { rows: [], rowCount: 0 } as never;
+        }
+        if (queryText.includes('FROM farm_logs fl')) {
+          return { rows: [], rowCount: 0 } as never;
+        }
+        if (queryText.includes('INSERT INTO ai_analyses')) {
+          return { rows: [{ id: 'analysis-1' }], rowCount: 1 } as never;
+        }
+        if (queryText.includes('INSERT INTO audit_logs')) {
+          return { rows: [], rowCount: 1 } as never;
+        }
+        return { rows: [], rowCount: 0 } as never;
+      });
+
+      const response = await request(app)
+        .post('/api/ai/summary')
+        .set('Cookie', [`accessToken=${farmerAToken}`])
+        .send({ plotId: plotA.id });
+
+      expect(response.status).toBe(200);
+      // Confirms ZERO writes or updates to farm records (plots, crop_cycles, logs, etc.)
+      expect(executedWriteQueries).toHaveLength(0);
     });
   });
 
