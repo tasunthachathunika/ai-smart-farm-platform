@@ -211,12 +211,14 @@ export interface AISummaryRequest {
   plotId: string;
   cycleId?: string;
   userPrompt?: string;
+  customTopic?: string;
 }
 
 export interface AIVisitPrepRequest {
   plotId: string;
   cycleId?: string;
   focusAreas?: string[];
+  customTopic?: string;
 }
 
 export interface ObservationItem {
@@ -253,6 +255,7 @@ export interface AIServiceResponse<T> {
   isFallback: boolean;
   flags?: string[];
   refusal?: boolean;
+  disclaimer?: string;
 }
 
 // --- Sharing & Permissions Types ---

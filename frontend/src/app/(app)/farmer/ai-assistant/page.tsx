@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Sparkles,
   ClipboardList,
@@ -12,6 +13,7 @@ import {
   ShieldAlert,
   WifiOff,
   CheckCircle2,
+  ShieldCheck,
 } from 'lucide-react';
 import { farmService } from '@/services/farmService';
 import { aiService } from '@/services/aiService';
@@ -36,15 +38,17 @@ import { AIResultCard } from '@/components/ui/AIResultCard';
 type AnalysisMode = 'summary' | 'visit_prep';
 
 const COMMON_FOCUS_AREAS = [
-  'Crop Health & Symptoms',
-  'Water & Irrigation Management',
+  'Crop Health',
+  'Water Management',
   'Weed Management',
-  'Pest Scouting Observations',
+  'Pest Scouting',
   'Growth Stage Verification',
   'Record Keeping Gaps',
 ];
 
 export default function FarmerAIAssistantPage() {
+  const router = useRouter();
+
   // Mode selection: "summary" (Summarize my season) vs "visit_prep" (Prepare for officer visit)
   const [selectedMode, setSelectedMode] = useState<AnalysisMode>('summary');
 
@@ -183,6 +187,7 @@ export default function FarmerAIAssistantPage() {
             plotId: selectedPlotId,
             cycleId: selectedCycleId || undefined,
             userPrompt: userPrompt.trim() || undefined,
+            customTopic: customFocusArea.trim() || undefined,
           },
           { signal: controller.signal }
         );
@@ -195,6 +200,7 @@ export default function FarmerAIAssistantPage() {
             plotId: selectedPlotId,
             cycleId: selectedCycleId || undefined,
             focusAreas: selectedFocusAreas.length > 0 ? selectedFocusAreas : undefined,
+            customTopic: customFocusArea.trim() || undefined,
           },
           { signal: controller.signal }
         );
@@ -214,6 +220,7 @@ export default function FarmerAIAssistantPage() {
 
       // Check for Refusal boundary (chemicals, pesticides, fertilizer dosage, diagnosis)
       const isRefusal =
+        code === 'SAFETY_POLICY_VIOLATION' ||
         code === 'PRE_FILTER_REFUSAL' ||
         message.toLowerCase().includes('refuse') ||
         message.toLowerCase().includes('pesticide') ||
@@ -296,7 +303,7 @@ export default function FarmerAIAssistantPage() {
             description="Register a plot first before generating AI season summaries or visit preparation questions."
             action={{
               label: 'Register Plot',
-              onClick: () => {},
+              onClick: () => router.push('/farmer/plots'),
             }}
           />
         ) : (
@@ -372,7 +379,7 @@ export default function FarmerAIAssistantPage() {
                 information across this plot.
               </p>
             </div>
-            <span className="text-xs font-bold text-ai-700 mt-4 block">Endpoint: POST /ai/summary</span>
+            <span className="text-xs font-bold text-ai-700 mt-4 block">Endpoint: POST /api/ai/summary</span>
           </button>
 
           {/* Card 2: Prepare for officer visit */}
@@ -407,7 +414,7 @@ export default function FarmerAIAssistantPage() {
               </p>
             </div>
             <span className="text-xs font-bold text-green-700 mt-4 block">
-              Endpoint: POST /ai/visit-prep
+              Endpoint: POST /api/ai/visit-prep
             </span>
           </button>
         </div>
@@ -433,10 +440,10 @@ export default function FarmerAIAssistantPage() {
           <div className="space-y-3">
             <div>
               <span className="text-sm font-bold text-ink-900 block">
-                Select Focus Areas for Officer Discussion (Optional)
+                Select Focus Topics for Officer Discussion (Optional)
               </span>
               <p className="text-xs text-ink-600 mt-0.5">
-                Choose areas you want the extension officer to inspect or review.
+                Choose topics you want the extension officer to inspect or review.
               </p>
             </div>
 
@@ -451,7 +458,7 @@ export default function FarmerAIAssistantPage() {
                     disabled={isGenerating}
                     className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all min-h-touch ${
                       isSelected
-                        ? 'border-green-600 bg-green-50 text-green-900'
+                        ? 'border-green-600 bg-green-50 text-green-900 shadow-sm'
                         : 'border-sand-300 bg-white text-ink-700 hover:border-sand-400'
                     }`}
                   >
@@ -462,12 +469,12 @@ export default function FarmerAIAssistantPage() {
               })}
             </div>
 
-            {/* Custom Focus Input */}
+            {/* Custom Focus Topic Input */}
             <form onSubmit={handleAddCustomFocus} className="flex items-end gap-2 pt-2 max-w-md">
               <div className="flex-1">
                 <Input
-                  label="Add Custom Focus Topic"
-                  placeholder="e.g. Sluice gate flow"
+                  label="Custom Focus Topic"
+                  placeholder="e.g. Sluice gate flow or soil drainage"
                   value={customFocusArea}
                   onChange={(e) => setCustomFocusArea(e.target.value)}
                   disabled={isGenerating}
@@ -629,35 +636,51 @@ export default function FarmerAIAssistantPage() {
 
       {/* STATE 5: SUCCESSFUL / FALLBACK RESULT IN AIResultCard */}
       {!isGenerating && summaryResult && (
-        <AIResultCard
-          title={`Season Summary: ${selectedPlot?.name || 'Selected Plot'}`}
-          analysisType="summary"
-          summary={summaryResult.data.summary}
-          keyObservations={summaryResult.data.keyObservations.map((obs) => ({
-            text: obs.observation,
-            sourceRecordIds: obs.sourceRecordIds,
-          }))}
-          missingInformation={summaryResult.data.dataGaps}
-          suggestedQuestions={summaryResult.data.suggestedOfficerQuestions}
-          isFallback={summaryResult.isFallback}
-        />
+        <div className="space-y-4">
+          <AIResultCard
+            title={`Season Summary: ${selectedPlot?.name || 'Selected Plot'}`}
+            analysisType="summary"
+            summary={summaryResult.data.summary}
+            keyObservations={summaryResult.data.keyObservations.map((obs) => ({
+              text: obs.observation,
+              sourceRecordIds: obs.sourceRecordIds,
+            }))}
+            missingInformation={summaryResult.data.dataGaps}
+            suggestedQuestions={summaryResult.data.suggestedOfficerQuestions}
+            isFallback={summaryResult.isFallback}
+          />
+          {summaryResult.disclaimer && (
+            <div className="flex items-center gap-2 text-xs text-ink-600 bg-sand-100 p-3 rounded-card border border-sand-200">
+              <ShieldCheck className="w-4 h-4 text-green-700 shrink-0" />
+              <span>{summaryResult.disclaimer}</span>
+            </div>
+          )}
+        </div>
       )}
 
       {!isGenerating && visitPrepResult && (
-        <AIResultCard
-          title={`Officer Visit Preparation: ${selectedPlot?.name || 'Selected Plot'}`}
-          analysisType="visit_prep"
-          overview={visitPrepResult.data.purpose}
-          timelineSummary={visitPrepResult.data.timelineSummary}
-          keyIssues={visitPrepResult.data.keyIssues.map((issue) => ({
-            text: issue.issue,
-            sourceRecordIds: issue.sourceRecordIds,
-            action: issue.suggestedAction,
-          }))}
-          discussionQuestions={visitPrepResult.data.discussionQuestions}
-          inspectionsRecommended={visitPrepResult.data.inspectionsRecommended}
-          isFallback={visitPrepResult.isFallback}
-        />
+        <div className="space-y-4">
+          <AIResultCard
+            title={`Officer Visit Preparation: ${selectedPlot?.name || 'Selected Plot'}`}
+            analysisType="visit_prep"
+            overview={visitPrepResult.data.purpose}
+            timelineSummary={visitPrepResult.data.timelineSummary}
+            keyIssues={visitPrepResult.data.keyIssues.map((issue) => ({
+              text: issue.issue,
+              sourceRecordIds: issue.sourceRecordIds,
+              action: issue.suggestedAction,
+            }))}
+            discussionQuestions={visitPrepResult.data.discussionQuestions}
+            inspectionsRecommended={visitPrepResult.data.inspectionsRecommended}
+            isFallback={visitPrepResult.isFallback}
+          />
+          {visitPrepResult.disclaimer && (
+            <div className="flex items-center gap-2 text-xs text-ink-600 bg-sand-100 p-3 rounded-card border border-sand-200">
+              <ShieldCheck className="w-4 h-4 text-green-700 shrink-0" />
+              <span>{visitPrepResult.disclaimer}</span>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
