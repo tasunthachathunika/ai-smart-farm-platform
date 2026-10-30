@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -8,14 +9,16 @@ import { useI18n } from '@/i18n';
 
 export interface BackButtonProps {
   label?: string;
+  href?: string;
   fallbackHref?: string;
   className?: string;
-  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  onClick?: (e: React.MouseEvent<HTMLElement>) => void;
   variant?: 'subtle' | 'ghost' | 'outline';
 }
 
 export const BackButton: React.FC<BackButtonProps> = ({
   label,
+  href,
   fallbackHref = '/',
   className,
   onClick,
@@ -25,6 +28,33 @@ export const BackButton: React.FC<BackButtonProps> = ({
   const { t } = useI18n();
 
   const displayLabel = label || t('common.back');
+
+  const baseClassName = cn(
+    'inline-flex items-center gap-2 px-3 py-2 rounded-card text-sm font-semibold transition-colors',
+    'min-h-[48px] min-w-[48px] touch-target select-none cursor-pointer',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2',
+    variant === 'subtle' &&
+      'text-ink-700 hover:text-ink-900 bg-sand-200/60 hover:bg-sand-200 border border-sand-300/80 active:bg-sand-300/80',
+    variant === 'ghost' &&
+      'text-ink-600 hover:text-ink-900 hover:bg-sand-100 active:bg-sand-200',
+    variant === 'outline' &&
+      'text-ink-900 bg-white hover:bg-sand-50 border border-sand-300 shadow-sm active:bg-sand-100',
+    className
+  );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        onClick={onClick}
+        aria-label={displayLabel}
+        className={baseClassName}
+      >
+        <ArrowLeft className="w-4 h-4 shrink-0 text-ink-700" aria-hidden="true" />
+        <span>{displayLabel}</span>
+      </Link>
+    );
+  }
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (onClick) {
@@ -44,22 +74,10 @@ export const BackButton: React.FC<BackButtonProps> = ({
       type="button"
       onClick={handleClick}
       aria-label={displayLabel}
-      className={cn(
-        'inline-flex items-center gap-2 px-3 py-2 rounded-card text-sm font-semibold transition-colors',
-        'min-h-[48px] min-w-[48px] touch-target select-none cursor-pointer',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2',
-        variant === 'subtle' &&
-          'text-ink-700 hover:text-ink-900 bg-sand-200/60 hover:bg-sand-200 border border-sand-300/80 active:bg-sand-300/80',
-        variant === 'ghost' &&
-          'text-ink-600 hover:text-ink-900 hover:bg-sand-100 active:bg-sand-200',
-        variant === 'outline' &&
-          'text-ink-900 bg-white hover:bg-sand-50 border border-sand-300 shadow-sm active:bg-sand-100',
-        className
-      )}
+      className={baseClassName}
     >
       <ArrowLeft className="w-4 h-4 shrink-0 text-ink-700" aria-hidden="true" />
       <span>{displayLabel}</span>
     </button>
   );
 };
-

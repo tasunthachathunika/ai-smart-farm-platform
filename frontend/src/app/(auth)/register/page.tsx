@@ -123,7 +123,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-lg space-y-6">
         {/* Top bar with back button & language switcher */}
         <div className="flex items-center justify-between">
-          <BackButton fallbackHref="/" variant="ghost" />
+          <BackButton href="/" variant="ghost" />
           <LanguageSwitcher />
         </div>
 
