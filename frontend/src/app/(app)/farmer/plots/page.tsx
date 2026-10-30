@@ -78,7 +78,29 @@ export default function FarmerPlotsPage() {
   // Form fields
   const [plotName, setPlotName] = useState('');
   const [plotNameError, setPlotNameError] = useState<string | null>(null);
-  const [plotNameTouched, setPlotNameTouched] = useState(false);
+
+  const handlePlotNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setPlotName(val);
+    if (formError) setFormError(null);
+
+    // Dynamic validation: triggers only when characters are present and < 2
+    if (val.trim().length > 0 && val.trim().length < 2) {
+      setPlotNameError('Plot name must be at least 2 characters');
+    } else {
+      setPlotNameError(null);
+    }
+  };
+
+  const handlePlotNameBlur = () => {
+    if (plotName.trim().length === 0) {
+      setPlotNameError('Plot name is required');
+    } else if (plotName.trim().length < 2) {
+      setPlotNameError('Plot name must be at least 2 characters');
+    } else {
+      setPlotNameError(null);
+    }
+  };
   const [plotFieldId, setPlotFieldId] = useState('');
   const [district, setDistrict] = useState('Anuradhapura');
   const [areaHa, setAreaHa] = useState('1.5');
@@ -125,7 +147,6 @@ export default function FarmerPlotsPage() {
     setEditingPlot(null);
     setPlotName('');
     setPlotNameError(null);
-    setPlotNameTouched(false);
     setPlotFieldId('');
     setDistrict('Anuradhapura');
     setAreaHa('1.5');
@@ -142,7 +163,6 @@ export default function FarmerPlotsPage() {
     setEditingPlot(plot);
     setPlotName(plot.name);
     setPlotNameError(null);
-    setPlotNameTouched(false);
     setPlotFieldId(plot.fieldId || '');
     setDistrict(plot.district);
     setAreaHa(plot.areaHa.toString());
@@ -187,7 +207,6 @@ export default function FarmerPlotsPage() {
 
     const trimmedName = plotName.trim();
     if (trimmedName.length < 2) {
-      setPlotNameTouched(true);
       setPlotNameError('Plot name must be at least 2 characters.');
       setFormError('Plot name must be at least 2 characters.');
       return;
@@ -492,36 +511,13 @@ export default function FarmerPlotsPage() {
             <Input
               id="plot-name"
               name="plotName"
+              type="text"
               label="Plot Name"
               required
               autoFocus
               value={plotName}
-              onChange={(e) => {
-                const val = e.target.value;
-                setPlotName(val);
-                if (formError) setFormError(null);
-                if (plotNameTouched) {
-                  const trimmed = val.trim();
-                  if (trimmed.length >= 2) {
-                    setPlotNameError(null);
-                  } else if (trimmed.length === 0) {
-                    setPlotNameError('Plot name is required.');
-                  } else {
-                    setPlotNameError('Plot name must be at least 2 characters.');
-                  }
-                }
-              }}
-              onBlur={() => {
-                setPlotNameTouched(true);
-                const trimmed = plotName.trim();
-                if (trimmed.length === 0) {
-                  setPlotNameError('Plot name is required.');
-                } else if (trimmed.length < 2) {
-                  setPlotNameError('Plot name must be at least 2 characters.');
-                } else {
-                  setPlotNameError(null);
-                }
-              }}
+              onChange={handlePlotNameChange}
+              onBlur={handlePlotNameBlur}
               error={plotNameError || undefined}
               placeholder="e.g. Mahaweli North Acre 1"
               helperText="Plot name must be at least 2 characters"
