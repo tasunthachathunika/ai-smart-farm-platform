@@ -1,26 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-
-const HERO_IMAGES = [
-  {
-    src: '/images/hero/farm-1.jpg',
-    alt: 'Sri Lankan verdant rice paddy field landscape',
-    location: 'Kurunegala Valley Paddy Fields, Sri Lanka',
-  },
-  {
-    src: '/images/hero/farm-2.jpg',
-    alt: 'Terraced agricultural fields and fertile crop cultivation',
-    location: 'Central Province Terraced Farmlands',
-  },
-  {
-    src: '/images/hero/farm-3.jpg',
-    alt: 'Golden sunrise across tropical farm paddies',
-    location: 'Polonnaruwa Agricultural Plains',
-  },
-];
+import React, { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import {
   MapPin,
   ClipboardList,
@@ -42,19 +23,12 @@ import {
 import { Button } from '@/components/ui/Button';
 import { AIResultCard } from '@/components/ui/AIResultCard';
 import { LanguageSwitcher } from '@/components/shell/LanguageSwitcher';
+import { HeroSlideshow } from '@/components/landing/HeroSlideshow';
 
 export default function LandingPage() {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [mockShareRevoked, setMockShareRevoked] = useState(false);
-  const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
 
-  // Automatically cycle hero background image every 3 seconds (3000ms)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentHeroIndex((prev) => (prev + 1) % HERO_IMAGES.length);
-    }, 3000);
-    return () => clearInterval(timer);
-  }, []);
 
   const toggleFaq = (index: number) => {
     setOpenFaqIndex(openFaqIndex === index ? null : index);
@@ -145,102 +119,47 @@ export default function LandingPage() {
       </header>
 
       {/* 2. HERO SECTION */}
-      <section className="relative overflow-hidden bg-slate-950 text-white py-20 sm:py-28 lg:py-32">
-        {/* Background Real-World High-Res Photos with Smooth 3s Crossfade */}
-        <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
-          {HERO_IMAGES.map((img, idx) => (
-            <div
-              key={img.src}
-              className={`absolute inset-0 transition-all duration-1000 ease-in-out ${
-                idx === currentHeroIndex
-                  ? 'opacity-100 scale-105'
-                  : 'opacity-0 scale-100 pointer-events-none'
-              }`}
-            >
-              <Image
-                src={img.src}
-                alt={img.alt}
-                fill
-                priority={idx === 0}
-                unoptimized
-                className="object-cover"
-                sizes="100vw"
-              />
+      <section className="relative">
+        <HeroSlideshow>
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/40 border border-white/25 text-xs font-semibold text-green-200 shadow-lg backdrop-blur-md">
+              <span>🛡️ Hardware-Encrypted GPS Privacy &amp; Verified Extension Advisory</span>
             </div>
-          ))}
-        </div>
 
-        {/* Cinematic translucent vignette overlay allowing real farm photos to shine through */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/75"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-emerald-950/20 mix-blend-multiply"
-        />
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
+              Keep your farm records. <br className="hidden sm:inline" />
+              <span className="text-[#FDB600]">Stay in control.</span>
+            </h1>
 
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/40 border border-white/25 text-xs font-semibold text-green-200 shadow-lg backdrop-blur-md">
-            <span>🛡️ Hardware-Encrypted GPS Privacy &amp; Verified Extension Advisory</span>
-          </div>
+            <p className="max-w-2xl mx-auto text-base sm:text-lg text-sand-100 leading-relaxed font-medium drop-shadow-[0_2px_6px_rgba(0,0,0,0.7)]">
+              Sri Lanka&apos;s smart farm records platform. Maintain crop cycles, field activities, and input journals with AES-256 GPS protection. Share securely with certified extension officers.
+            </p>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
-            Keep your farm records. <br className="hidden sm:inline" />
-            <span className="text-gold-400">Stay in control.</span>
-          </h1>
+            {/* Dual Hero CTAs */}
+            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link href="/register" className="w-full sm:w-auto">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="w-full sm:w-auto font-bold shadow-xl border border-amber-300/40 hover:scale-[1.02] transition-transform !bg-[#FDB600] !text-[#1F2933]"
+                  rightIcon={<ArrowRight className="w-5 h-5" />}
+                >
+                  Register your farm
+                </Button>
+              </Link>
 
-          <p className="max-w-2xl mx-auto text-base sm:text-lg text-sand-100 leading-relaxed font-medium drop-shadow-[0_2px_6px_rgba(0,0,0,0.7)]">
-            Sri Lanka&apos;s smart farm records platform. Maintain crop cycles, field activities, and input journals with AES-256 GPS protection. Share securely with certified extension officers.
-          </p>
-
-          {/* Dual Hero CTAs */}
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/register" className="w-full sm:w-auto">
-              <Button
-                variant="primary"
-                size="lg"
-                className="w-full sm:w-auto font-bold shadow-xl border border-gold-300/40 hover:scale-[1.02] transition-transform"
-                rightIcon={<ArrowRight className="w-5 h-5" />}
-              >
-                Register your farm
-              </Button>
-            </Link>
-
-            <Link href="/login" className="w-full sm:w-auto">
-              <button
-                type="button"
-                className="w-full sm:w-auto min-h-touch px-6 py-3.5 rounded-card border-2 border-white/80 bg-black/30 hover:bg-black/50 text-white font-semibold transition-all flex items-center justify-center gap-2 backdrop-blur-md shadow-lg hover:scale-[1.02]"
-              >
-                <UserCheck className="w-5 h-5 text-green-300" />
-                <span>Officer portal</span>
-              </button>
-            </Link>
-          </div>
-
-          {/* Slideshow Progress Bar & Live Location Pill */}
-          <div className="pt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <div className="flex items-center gap-2" aria-label="Hero background slideshow controls">
-              {HERO_IMAGES.map((img, idx) => (
+              <Link href="/login" className="w-full sm:w-auto">
                 <button
-                  key={img.src}
                   type="button"
-                  onClick={() => setCurrentHeroIndex(idx)}
-                  aria-label={`Switch to ${img.location}`}
-                  className={`h-2 rounded-full transition-all duration-500 cursor-pointer ${
-                    idx === currentHeroIndex
-                      ? 'w-8 bg-gold-400 shadow-md ring-2 ring-gold-400/30'
-                      : 'w-2.5 bg-white/40 hover:bg-white/75'
-                  }`}
-                />
-              ))}
+                  className="w-full sm:w-auto min-h-touch px-6 py-3.5 rounded-card border-2 border-white/80 bg-black/30 hover:bg-black/50 text-white font-semibold transition-all flex items-center justify-center gap-2 backdrop-blur-md shadow-lg hover:scale-[1.02]"
+                >
+                  <UserCheck className="w-5 h-5 text-green-300" />
+                  <span>Officer portal</span>
+                </button>
+              </Link>
             </div>
-            <span className="text-xs text-white/80 font-medium bg-black/40 px-3 py-1 rounded-full backdrop-blur-md border border-white/10 shadow-sm flex items-center gap-1.5">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{HERO_IMAGES[currentHeroIndex]?.location}</span>
-            </span>
           </div>
-        </div>
+        </HeroSlideshow>
       </section>
 
       {/* 3. TRUST STRIP */}
