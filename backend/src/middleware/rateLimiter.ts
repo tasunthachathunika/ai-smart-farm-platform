@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { env } from '../config/env';
 
 interface RateLimitRecord {
   timestamps: number[];
@@ -120,11 +121,14 @@ export const aiRateLimiter = createRateLimiter({
 
 /**
  * 2. Login Strict Rate Limiter:
- * Defense against credential stuffing and brute-force attacks (5 attempts per 15 minutes per IP).
+ * Defense against credential stuffing and brute-force attacks.
+ * In production: 5 attempts per 15 minutes.
+ * In development: defaults to 100 attempts per minute (or configurable via env vars).
  */
+const isDev = process.env.NODE_ENV === 'development';
 export const loginRateLimiter = createRateLimiter({
-  windowMs: 15 * 60 * 1000,
-  maxRequests: 5,
+  windowMs: env.LOGIN_RATE_LIMIT_WINDOW_MS ?? (isDev ? 60 * 1000 : 15 * 60 * 1000),
+  maxRequests: env.LOGIN_RATE_LIMIT_MAX ?? (isDev ? 100 : 5),
   keyPrefix: 'login',
   code: 'LOGIN_RATE_LIMIT_EXCEEDED',
   keyGenerator: (req) => req.ip || req.socket.remoteAddress || 'unknown',

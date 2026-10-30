@@ -24,6 +24,8 @@ export const envSchema = z.object({
       }
       return (process.env.NODE_ENV || 'development') !== 'production';
     }, z.boolean()),
+  LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().positive().optional(),
+  LOGIN_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
