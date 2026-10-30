@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { farmService } from '@/services/farmService';
 import { Plot, Field, CreatePlotInput } from '@/types/farm';
-import { ApiError } from '@/lib/api';
+import { ApiError, getFriendlyErrorMessage } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -128,8 +128,8 @@ export default function FarmerPlotsPage() {
       setTotalPages(res.pagination?.totalPages || 1);
       setTotalPlots(res.pagination?.total || 0);
     } catch (err: unknown) {
-      const apiErr = err as ApiError;
-      setError(apiErr?.message || 'Failed to load farm plots. Please retry.');
+
+      setError(getFriendlyErrorMessage(err, 'Failed to load farm plots. Please retry.'));
     } finally {
       setIsLoading(false);
     }
@@ -254,8 +254,20 @@ export default function FarmerPlotsPage() {
       setIsModalOpen(false);
       fetchPlots();
     } catch (err: unknown) {
+
       const apiErr = err as ApiError;
-      setFormError(apiErr?.message || 'Failed to save plot. Please check inputs.');
+      const friendlyMsg = getFriendlyErrorMessage(err, 'Failed to save plot. Please check inputs.');
+      setFormError(friendlyMsg);
+      if (apiErr?.details && Array.isArray(apiErr.details)) {
+        for (const item of apiErr.details) {
+          if (item && typeof item === 'object') {
+            const typedItem = item as { field?: string; message?: string };
+            if (typedItem.field === 'name' && typedItem.message) {
+              setPlotNameError(typedItem.message);
+            }
+          }
+        }
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -270,8 +282,8 @@ export default function FarmerPlotsPage() {
       setDeletingPlot(null);
       fetchPlots();
     } catch (err: unknown) {
-      const apiErr = err as ApiError;
-      setError(apiErr?.message || 'Failed to delete plot.');
+
+      setError(getFriendlyErrorMessage(err, 'Failed to delete plot.'));
     } finally {
       setIsDeleting(false);
     }

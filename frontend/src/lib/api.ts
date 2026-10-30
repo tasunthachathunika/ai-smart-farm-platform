@@ -232,6 +232,66 @@ export function normalizeError(error: unknown): ApiError {
   );
 }
 
+/**
+ * Maps error codes and validation details to user-friendly messages.
+ * Prevents raw [object Object] or technical stack traces from leaking to UI.
+ */
+export function getFriendlyErrorMessage(
+  error: unknown,
+  fallbackMessage = 'An unexpected error occurred.'
+): string {
+  if (!error) return fallbackMessage;
+  const apiErr = normalizeError(error);
+
+  const codeMessages: Record<string, string> = {
+    UNAUTHORIZED: 'Your session has expired. Please log in again.',
+    INVALID_CREDENTIALS: 'The email or password you entered is incorrect.',
+    FORBIDDEN: 'You do not have permission to perform this action.',
+    RESOURCE_NOT_FOUND: 'The requested resource could not be found.',
+    NOT_FOUND: 'The requested resource was not found.',
+    RATE_LIMITED: apiErr.message || 'Too many requests. Please wait a moment before trying again.',
+    LOGIN_RATE_LIMIT_EXCEEDED: 'Too many login attempts. Please wait a moment before trying again.',
+    VALIDATION_ERROR: 'Please check the information you entered.',
+    OFFLINE: 'You are currently offline. Please check your internet connection.',
+    NETWORK_ERROR: 'Unable to reach the server. Please check your network connection.',
+    CSRF_VALIDATION_FAILED: 'Security verification failed. Please refresh the page and try again.',
+    CONFLICT: 'A record with this information already exists.',
+    FILE_TOO_LARGE: 'The uploaded file exceeds the allowed size limit.',
+    INVALID_FILE_TYPE: 'Unsupported file type. Please upload a valid JPEG, PNG, or WebP image.',
+    INTERNAL_SERVER_ERROR: 'A temporary server error occurred. Please try again later.',
+  };
+
+  let baseMessage = codeMessages[apiErr.code] || apiErr.message || fallbackMessage;
+
+  // Append formatted details if present
+  if (apiErr.details) {
+    if (Array.isArray(apiErr.details) && apiErr.details.length > 0) {
+      const fieldDetails = apiErr.details
+        .map((d: unknown) => {
+          if (d && typeof d === 'object') {
+            const item = d as { field?: string; message?: string };
+            return item.message ? `${item.field ? `${item.field}: ` : ''}${item.message}` : '';
+          }
+          return typeof d === 'string' ? d : '';
+        })
+        .filter(Boolean)
+        .join('; ');
+      if (fieldDetails) {
+        baseMessage = `${baseMessage} (${fieldDetails})`;
+      }
+    } else if (typeof apiErr.details === 'string') {
+      baseMessage = `${baseMessage} (${apiErr.details})`;
+    }
+  }
+
+  // Prevent raw object display
+  if (baseMessage.includes('[object Object]')) {
+    baseMessage = fallbackMessage;
+  }
+
+  return baseMessage;
+}
+
 // --- Response Interceptor: CSRF retry and 401 token refresh queue ---
 api.interceptors.response.use(
   (response) => {
