@@ -1,6 +1,21 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+const HERO_IMAGES = [
+  {
+    src: '/images/hero/farm-1.jpg',
+    alt: 'Sri Lankan lush green paddy fields and landscape',
+  },
+  {
+    src: '/images/hero/farm-2.jpg',
+    alt: 'Terraced agricultural fields and fertile crop cultivation',
+  },
+  {
+    src: '/images/hero/farm-3.jpg',
+    alt: 'Golden sunrise across tropical farm paddies',
+  },
+];
 import Link from 'next/link';
 import {
   MapPin,
@@ -27,6 +42,15 @@ import { LanguageSwitcher } from '@/components/shell/LanguageSwitcher';
 export default function LandingPage() {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [mockShareRevoked, setMockShareRevoked] = useState(false);
+  const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
+
+  // Automatically cycle hero background image every 3 seconds (3000ms)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentHeroIndex((prev) => (prev + 1) % HERO_IMAGES.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
 
   const toggleFaq = (index: number) => {
     setOpenFaqIndex(openFaqIndex === index ? null : index);
@@ -117,31 +141,49 @@ export default function LandingPage() {
       </header>
 
       {/* 2. HERO SECTION */}
-      <section className="relative overflow-hidden bg-green-900 text-white py-16 sm:py-24 lg:py-28">
-        {/* Soft decorative pale green blobs */}
+      <section className="relative overflow-hidden bg-green-950 text-white py-16 sm:py-24 lg:py-28">
+        {/* Background Rotating Images with Smooth Crossfade (every 3s) */}
+        <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+          {HERO_IMAGES.map((img, idx) => (
+            <div
+              key={img.src}
+              className={`absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out ${
+                idx === currentHeroIndex
+                  ? 'opacity-100 scale-105'
+                  : 'opacity-0 scale-100 pointer-events-none'
+              }`}
+              style={{ backgroundImage: `url(${img.src})` }}
+            />
+          ))}
+        </div>
+
+        {/* High-contrast gradient overlay ensuring WCAG text readability */}
         <div
           aria-hidden="true"
-          className="absolute -top-24 -left-24 w-96 h-96 bg-green-500/20 rounded-full blur-3xl pointer-events-none"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute -bottom-24 -right-24 w-96 h-96 bg-green-400/15 rounded-full blur-3xl pointer-events-none"
+          className="absolute inset-0 bg-gradient-to-b from-green-950/85 via-green-950/75 to-green-950/90 backdrop-blur-[0.5px]"
         />
 
-        {/* Pattern overlay simulation */}
-        <div className="absolute inset-0 bg-gradient-to-b from-green-950/80 via-green-900/90 to-green-950/95" />
+        {/* Soft decorative ambient glow */}
+        <div
+          aria-hidden="true"
+          className="absolute -top-24 -left-24 w-96 h-96 bg-green-500/15 rounded-full blur-3xl pointer-events-none"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute -bottom-24 -right-24 w-96 h-96 bg-green-400/10 rounded-full blur-3xl pointer-events-none"
+        />
 
         <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-800/80 border border-green-700/60 text-xs font-semibold text-green-100">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-900/80 border border-green-700/60 text-xs font-semibold text-green-100 shadow-sm backdrop-blur-sm">
             <span>🛡️ Hardware-Encrypted GPS Privacy &amp; Verified Extension Advisory</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight drop-shadow-sm">
             Keep your farm records. <br className="hidden sm:inline" />
             <span className="text-gold-500">Stay in control.</span>
           </h1>
 
-          <p className="max-w-2xl mx-auto text-base sm:text-lg text-green-100 leading-relaxed font-normal">
+          <p className="max-w-2xl mx-auto text-base sm:text-lg text-green-100 leading-relaxed font-normal drop-shadow-sm">
             Sri Lanka&apos;s smart farm records platform. Maintain crop cycles, field activities, and input journals with AES-256 GPS protection. Share securely with certified extension officers.
           </p>
 
@@ -161,12 +203,29 @@ export default function LandingPage() {
             <Link href="/login" className="w-full sm:w-auto">
               <button
                 type="button"
-                className="w-full sm:w-auto min-h-touch px-6 py-3.5 rounded-card border-2 border-white/70 text-white font-semibold hover:bg-white/10 active:bg-white/20 transition-colors flex items-center justify-center gap-2"
+                className="w-full sm:w-auto min-h-touch px-6 py-3.5 rounded-card border-2 border-white/70 text-white font-semibold hover:bg-white/10 active:bg-white/20 transition-colors flex items-center justify-center gap-2 backdrop-blur-sm"
               >
                 <UserCheck className="w-5 h-5 text-green-200" />
                 <span>Officer portal</span>
               </button>
             </Link>
+          </div>
+
+          {/* Slideshow Progress Indicators (Dots) */}
+          <div className="flex items-center justify-center gap-2 pt-2" aria-label="Hero background slideshow controls">
+            {HERO_IMAGES.map((_, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setCurrentHeroIndex(idx)}
+                aria-label={`Switch to slide ${idx + 1}`}
+                className={`transition-all duration-300 rounded-full ${
+                  idx === currentHeroIndex
+                    ? 'w-6 h-2 bg-gold-500 shadow-sm'
+                    : 'w-2 h-2 bg-white/40 hover:bg-white/70'
+                }`}
+              />
+            ))}
           </div>
         </div>
       </section>
