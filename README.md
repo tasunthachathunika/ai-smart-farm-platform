@@ -81,6 +81,19 @@ The database comes pre-seeded with authenticated accounts representing each role
 | **Farmer** | Sunil Bandara | `sunil.farmer@goviya.lk` | Primary demo farmer with 2 plots (Maha Ela Paddy, Kandy Valley), active crop cycles, and photo logs. |
 | **Farmer** | Anula Kumari | `anula.farmer@goviya.lk` | Secondary demo farmer with high-value vegetable plots in Nuwara Eliya. |
 
+### Running / Resetting Seed Data
+The seed script is idempotent (upserts users by email, hashes with `argon2id`, resets failed login attempts/lockouts, and populates demo plots and crop cycles):
+```bash
+# In production / Docker Compose container
+docker compose exec backend npm run seed
+
+# In local environment (runs compiled dist/db/seed.js)
+cd backend && npm run seed
+
+# In development with tsx (TypeScript direct)
+cd backend && npm run seed:dev
+```
+
 ---
 
 ## Local Development (Manual Setup)
