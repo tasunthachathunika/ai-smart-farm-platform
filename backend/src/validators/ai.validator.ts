@@ -5,6 +5,7 @@ export const aiSummaryRequestSchema = z.object({
   plotId: z.string().uuid('plotId must be a valid UUID'),
   cycleId: z.string().uuid('cycleId must be a valid UUID').optional(),
   userPrompt: z.string().trim().max(1000, 'userPrompt cannot exceed 1000 characters').optional(),
+  customTopic: z.string().trim().max(500, 'customTopic cannot exceed 500 characters').optional(),
 });
 
 export const aiVisitPrepRequestSchema = z.object({
@@ -14,6 +15,7 @@ export const aiVisitPrepRequestSchema = z.object({
     .array(z.string().trim().max(100, 'Focus area text too long'))
     .max(10, 'Maximum 10 focus areas allowed')
     .optional(),
+  customTopic: z.string().trim().max(500, 'customTopic cannot exceed 500 characters').optional(),
 });
 
 // Observation item schema grounded with source record IDs

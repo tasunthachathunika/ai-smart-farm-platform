@@ -24,6 +24,8 @@ export const envSchema = z.object({
       }
       return (process.env.NODE_ENV || 'development') !== 'production';
     }, z.boolean()),
+  GEMINI_API_KEY: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -60,4 +62,4 @@ export function parseEnv(rawEnv: NodeJS.ProcessEnv = process.env): Env {
   return result.data;
 }
 
-export const env: Env = parseEnv();
+export const env = parseEnv();

@@ -12,12 +12,19 @@ export class AIController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const { plotId, cycleId, userPrompt } = req.body;
+      const { plotId, cycleId, userPrompt, customTopic } = req.body;
 
-      const result = await aiService.generateSummary(req.user!, plotId, cycleId, userPrompt, {
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
-      });
+      const result = await aiService.generateSummary(
+        req.user!,
+        plotId,
+        cycleId,
+        userPrompt,
+        customTopic,
+        {
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+        },
+      );
 
       res.status(200).json(result);
     } catch (error) {
@@ -35,12 +42,19 @@ export class AIController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const { plotId, cycleId, focusAreas } = req.body;
+      const { plotId, cycleId, focusAreas, customTopic } = req.body;
 
-      const result = await aiService.generateVisitPrep(req.user!, plotId, cycleId, focusAreas, {
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
-      });
+      const result = await aiService.generateVisitPrep(
+        req.user!,
+        plotId,
+        cycleId,
+        focusAreas,
+        customTopic,
+        {
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+        },
+      );
 
       res.status(200).json(result);
     } catch (error) {
