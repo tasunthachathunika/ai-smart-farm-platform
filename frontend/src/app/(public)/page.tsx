@@ -5,18 +5,22 @@ import React, { useState, useEffect } from 'react';
 const HERO_IMAGES = [
   {
     src: '/images/hero/farm-1.jpg',
-    alt: 'Sri Lankan lush green paddy fields and landscape',
+    alt: 'Sri Lankan verdant rice paddy field landscape',
+    location: 'Kurunegala Valley Paddy Fields, Sri Lanka',
   },
   {
     src: '/images/hero/farm-2.jpg',
     alt: 'Terraced agricultural fields and fertile crop cultivation',
+    location: 'Central Province Terraced Farmlands',
   },
   {
     src: '/images/hero/farm-3.jpg',
     alt: 'Golden sunrise across tropical farm paddies',
+    location: 'Polonnaruwa Agricultural Plains',
   },
 ];
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   MapPin,
   ClipboardList,
@@ -141,49 +145,51 @@ export default function LandingPage() {
       </header>
 
       {/* 2. HERO SECTION */}
-      <section className="relative overflow-hidden bg-green-950 text-white py-16 sm:py-24 lg:py-28">
-        {/* Background Rotating Images with Smooth Crossfade (every 3s) */}
+      <section className="relative overflow-hidden bg-slate-950 text-white py-20 sm:py-28 lg:py-32">
+        {/* Background Real-World High-Res Photos with Smooth 3s Crossfade */}
         <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
           {HERO_IMAGES.map((img, idx) => (
             <div
               key={img.src}
-              className={`absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out ${
+              className={`absolute inset-0 transition-all duration-1000 ease-in-out ${
                 idx === currentHeroIndex
                   ? 'opacity-100 scale-105'
                   : 'opacity-0 scale-100 pointer-events-none'
               }`}
-              style={{ backgroundImage: `url(${img.src})` }}
-            />
+            >
+              <Image
+                src={img.src}
+                alt={img.alt}
+                fill
+                priority={idx === 0}
+                className="object-cover"
+                sizes="100vw"
+              />
+            </div>
           ))}
         </div>
 
-        {/* High-contrast gradient overlay ensuring WCAG text readability */}
+        {/* Cinematic translucent vignette overlay allowing real farm photos to shine through */}
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-b from-green-950/85 via-green-950/75 to-green-950/90 backdrop-blur-[0.5px]"
-        />
-
-        {/* Soft decorative ambient glow */}
-        <div
-          aria-hidden="true"
-          className="absolute -top-24 -left-24 w-96 h-96 bg-green-500/15 rounded-full blur-3xl pointer-events-none"
+          className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80"
         />
         <div
           aria-hidden="true"
-          className="absolute -bottom-24 -right-24 w-96 h-96 bg-green-400/10 rounded-full blur-3xl pointer-events-none"
+          className="absolute inset-0 bg-green-950/30 mix-blend-multiply"
         />
 
         <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-900/80 border border-green-700/60 text-xs font-semibold text-green-100 shadow-sm backdrop-blur-sm">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/40 border border-white/25 text-xs font-semibold text-green-200 shadow-lg backdrop-blur-md">
             <span>🛡️ Hardware-Encrypted GPS Privacy &amp; Verified Extension Advisory</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight drop-shadow-sm">
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
             Keep your farm records. <br className="hidden sm:inline" />
-            <span className="text-gold-500">Stay in control.</span>
+            <span className="text-gold-400">Stay in control.</span>
           </h1>
 
-          <p className="max-w-2xl mx-auto text-base sm:text-lg text-green-100 leading-relaxed font-normal drop-shadow-sm">
+          <p className="max-w-2xl mx-auto text-base sm:text-lg text-sand-100 leading-relaxed font-medium drop-shadow-[0_2px_6px_rgba(0,0,0,0.7)]">
             Sri Lanka&apos;s smart farm records platform. Maintain crop cycles, field activities, and input journals with AES-256 GPS protection. Share securely with certified extension officers.
           </p>
 
@@ -193,7 +199,7 @@ export default function LandingPage() {
               <Button
                 variant="primary"
                 size="lg"
-                className="w-full sm:w-auto font-bold shadow-lg"
+                className="w-full sm:w-auto font-bold shadow-xl border border-gold-300/40 hover:scale-[1.02] transition-transform"
                 rightIcon={<ArrowRight className="w-5 h-5" />}
               >
                 Register your farm
@@ -203,29 +209,35 @@ export default function LandingPage() {
             <Link href="/login" className="w-full sm:w-auto">
               <button
                 type="button"
-                className="w-full sm:w-auto min-h-touch px-6 py-3.5 rounded-card border-2 border-white/70 text-white font-semibold hover:bg-white/10 active:bg-white/20 transition-colors flex items-center justify-center gap-2 backdrop-blur-sm"
+                className="w-full sm:w-auto min-h-touch px-6 py-3.5 rounded-card border-2 border-white/80 bg-black/30 hover:bg-black/50 text-white font-semibold transition-all flex items-center justify-center gap-2 backdrop-blur-md shadow-lg hover:scale-[1.02]"
               >
-                <UserCheck className="w-5 h-5 text-green-200" />
+                <UserCheck className="w-5 h-5 text-green-300" />
                 <span>Officer portal</span>
               </button>
             </Link>
           </div>
 
-          {/* Slideshow Progress Indicators (Dots) */}
-          <div className="flex items-center justify-center gap-2 pt-2" aria-label="Hero background slideshow controls">
-            {HERO_IMAGES.map((_, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setCurrentHeroIndex(idx)}
-                aria-label={`Switch to slide ${idx + 1}`}
-                className={`transition-all duration-300 rounded-full ${
-                  idx === currentHeroIndex
-                    ? 'w-6 h-2 bg-gold-500 shadow-sm'
-                    : 'w-2 h-2 bg-white/40 hover:bg-white/70'
-                }`}
-              />
-            ))}
+          {/* Slideshow Progress Bar & Live Location Pill */}
+          <div className="pt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <div className="flex items-center gap-2" aria-label="Hero background slideshow controls">
+              {HERO_IMAGES.map((img, idx) => (
+                <button
+                  key={img.src}
+                  type="button"
+                  onClick={() => setCurrentHeroIndex(idx)}
+                  aria-label={`Switch to ${img.location}`}
+                  className={`h-2 rounded-full transition-all duration-500 cursor-pointer ${
+                    idx === currentHeroIndex
+                      ? 'w-8 bg-gold-400 shadow-md ring-2 ring-gold-400/30'
+                      : 'w-2.5 bg-white/40 hover:bg-white/75'
+                  }`}
+                />
+              ))}
+            </div>
+            <span className="text-xs text-white/80 font-medium bg-black/40 px-3 py-1 rounded-full backdrop-blur-md border border-white/10 shadow-sm flex items-center gap-1.5">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{HERO_IMAGES[currentHeroIndex]?.location}</span>
+            </span>
           </div>
         </div>
       </section>
