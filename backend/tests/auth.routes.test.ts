@@ -231,4 +231,62 @@ describe('Auth HTTP Routes & Cookie Suite', () => {
       expect(res.body.user).toEqual(mockUser);
     });
   });
+
+  describe('PATCH /api/auth/profile', () => {
+    it('should return 401 when unauthenticated', async () => {
+      const res = await request(app).patch('/api/auth/profile').send({
+        fullName: 'Updated Name',
+      });
+
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('UNAUTHORIZED');
+    });
+
+    it('should return 400 when fullName is too short', async () => {
+      const validToken = createAccessToken({
+        userId: mockUser.id,
+        role: mockUser.role,
+        email: mockUser.email,
+      });
+
+      jest.spyOn(authService, 'getMe').mockResolvedValueOnce(mockUser);
+
+      const res = await request(app)
+        .patch('/api/auth/profile')
+        .set('Cookie', [`accessToken=${validToken}`])
+        .send({ fullName: 'A' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('should update profile successfully for authenticated user', async () => {
+      const validToken = createAccessToken({
+        userId: mockUser.id,
+        role: mockUser.role,
+        email: mockUser.email,
+      });
+
+      const updatedUser = {
+        ...mockUser,
+        fullName: 'Sunil Updated Bandara',
+        phone: '+94771234567',
+      };
+
+      jest.spyOn(authService, 'getMe').mockResolvedValueOnce(mockUser);
+      jest.spyOn(authService, 'updateProfile').mockResolvedValueOnce(updatedUser);
+
+      const res = await request(app)
+        .patch('/api/auth/profile')
+        .set('Cookie', [`accessToken=${validToken}`])
+        .send({
+          fullName: 'Sunil Updated Bandara',
+          phone: '+94771234567',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.user).toEqual(updatedUser);
+      expect(res.body.message).toBe('Profile updated successfully');
+    });
+  });
 });

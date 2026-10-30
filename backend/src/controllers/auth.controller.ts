@@ -3,6 +3,7 @@ import { authService } from '../services/auth.service';
 import { env } from '../config/env';
 import { ACCESS_TOKEN_MAX_AGE_MS, REFRESH_TOKEN_MAX_AGE_MS } from '../utils/token';
 import { setCsrfCookie, clearCsrfCookie } from '../middleware/csrf';
+import { Unauthorized } from '../utils/errors';
 
 const isProduction = env.NODE_ENV === 'production' && !env.CORS_ORIGIN.includes('localhost');
 
@@ -87,6 +88,29 @@ export class AuthController {
   public getMe = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       res.status(200).json({ user: req.user });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public updateProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user?.id) {
+        throw new Unauthorized('Authentication required', 'UNAUTHORIZED');
+      }
+
+      const fullName = req.body.fullName || req.body.full_name;
+      const phone = req.body.phone;
+
+      const updatedUser = await authService.updateProfile(req.user.id, {
+        fullName,
+        phone,
+      });
+
+      res.status(200).json({
+        user: updatedUser,
+        message: 'Profile updated successfully',
+      });
     } catch (error) {
       next(error);
     }

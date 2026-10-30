@@ -362,6 +362,49 @@ export class AuthService {
   }
 
   /**
+   * Update authenticated user profile details (fullName, phone).
+   */
+  public async updateProfile(
+    userId: string,
+    data: { fullName?: string; phone?: string | null },
+  ): Promise<UserResponse> {
+    const existing = await this.getMe(userId);
+
+    const newFullName = data.fullName !== undefined ? data.fullName.trim() : existing.fullName;
+    const newPhone =
+      data.phone !== undefined ? (data.phone ? data.phone.trim() : null) : existing.phone;
+
+    const result = await pool.query<{
+      id: string;
+      email: string;
+      full_name: string;
+      phone: string | null;
+      role: 'farmer' | 'officer' | 'admin';
+      is_verified: boolean;
+      is_active?: boolean;
+      created_at: Date;
+    }>(
+      `UPDATE users
+       SET full_name = $1, phone = $2, updated_at = NOW()
+       WHERE id = $3
+       RETURNING id, email, full_name, phone, role, is_verified, is_active, created_at;`,
+      [newFullName, newPhone, userId],
+    );
+
+    const userRow = result.rows[0];
+    return {
+      id: userRow.id,
+      email: userRow.email,
+      fullName: userRow.full_name,
+      phone: userRow.phone,
+      role: userRow.role,
+      isVerified: userRow.is_verified,
+      isActive: userRow.is_active ?? true,
+      createdAt: userRow.created_at.toISOString(),
+    };
+  }
+
+  /**
    * Internal helper: Generate, hash, and store a refresh token.
    */
   private async createAndSaveRefreshToken(userId: string): Promise<string> {

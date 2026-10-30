@@ -14,3 +14,4 @@ export * from './Table';
 export * from './TimelineItem';
 export * from './PhotoUploader';
 export * from './AIResultCard';
+export * from './BackButton';

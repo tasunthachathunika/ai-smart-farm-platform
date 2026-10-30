@@ -130,9 +130,16 @@ export const Sidebar: React.FC = () => {
 
       {/* User Footer Profile & Logout */}
       <div className="p-3 border-t border-sand-200 bg-sand-50/60 flex flex-col gap-2">
-        <div className={cn('flex items-center gap-3 px-2 py-1', isCollapsed && 'justify-center')}>
+        <Link
+          href={`/${user.role}/profile`}
+          className={cn(
+            'flex items-center gap-3 px-2 py-1.5 rounded-card hover:bg-sand-200/60 transition-colors cursor-pointer group',
+            isCollapsed && 'justify-center'
+          )}
+          title="View & Edit Profile"
+        >
           <div
-            className="w-10 h-10 rounded-full bg-green-200 text-green-800 flex items-center justify-center font-bold text-sm shrink-0 border border-green-300"
+            className="w-10 h-10 rounded-full bg-green-200 text-green-800 flex items-center justify-center font-bold text-sm shrink-0 border border-green-300 group-hover:border-green-600 transition-colors"
             aria-hidden="true"
           >
             {user.fullName?.charAt(0).toUpperCase() || 'U'}
@@ -140,7 +147,9 @@ export const Sidebar: React.FC = () => {
 
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-ink-900 truncate">{user.fullName}</p>
+              <p className="text-sm font-bold text-ink-900 group-hover:text-green-800 transition-colors truncate">
+                {user.fullName}
+              </p>
               <div className="flex items-center gap-1 mt-0.5">
                 <Badge
                   variant={roleBadgeConfig.variant}
@@ -150,7 +159,7 @@ export const Sidebar: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
+        </Link>
 
         <button
           type="button"

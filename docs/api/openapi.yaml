@@ -1403,6 +1403,50 @@ paths:
                     $ref: "#/components/schemas/UserResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /api/auth/profile:
+    patch:
+      tags:
+        - Auth
+      summary: Update profile of current authenticated user
+      description: "Updates user full name and/or phone number. Allowed roles: `farmer`, `officer`, `admin`."
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                  example: Sunil Bandara
+                phone:
+                  type: string
+                  maxLength: 50
+                  nullable: true
+                  example: "+94771234567"
+      responses:
+        "200":
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - user
+                properties:
+                  user:
+                    $ref: "#/components/schemas/UserResponse"
+                  message:
+                    type: string
+                    example: Profile updated successfully
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /api/fields:
     post:
       tags:
