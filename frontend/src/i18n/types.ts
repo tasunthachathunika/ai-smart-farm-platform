@@ -86,4 +86,10 @@ export interface TranslationDictionary {
     gpsPrivacyNotice: string;
     immutableAuditNotice: string;
   };
+  hero: {
+    slide1Location: string;
+    slide2Location: string;
+    slide3Location: string;
+    showSlide: string;
+  };
 }

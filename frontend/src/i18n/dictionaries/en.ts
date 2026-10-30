@@ -87,4 +87,10 @@ export const en: TranslationDictionary = {
     gpsPrivacyNotice: 'Exact GPS is NEVER shared. Officers only see your district.',
     immutableAuditNotice: 'All share grants, revocations, and views are recorded in your immutable audit journal.',
   },
+  hero: {
+    slide1Location: 'Central Province Terraced Farmlands',
+    slide2Location: 'Paddy fields, Anuradhapura',
+    slide3Location: 'Vegetable farm, Nuwara Eliya',
+    showSlide: 'Show slide {n}',
+  },
 };
