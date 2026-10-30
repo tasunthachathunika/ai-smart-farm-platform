@@ -162,6 +162,7 @@ export default function LandingPage() {
                 alt={img.alt}
                 fill
                 priority={idx === 0}
+                unoptimized
                 className="object-cover"
                 sizes="100vw"
               />
@@ -172,11 +173,11 @@ export default function LandingPage() {
         {/* Cinematic translucent vignette overlay allowing real farm photos to shine through */}
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80"
+          className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/75"
         />
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-green-950/30 mix-blend-multiply"
+          className="absolute inset-0 bg-emerald-950/20 mix-blend-multiply"
         />
 
         <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
