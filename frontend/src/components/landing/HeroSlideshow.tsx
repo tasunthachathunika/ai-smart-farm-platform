@@ -111,7 +111,7 @@ export function HeroSlideshow({ children }: HeroSlideshowProps) {
 
   return (
     <div
-      className="relative w-full overflow-hidden bg-gradient-to-b from-[#1B4D1E] to-[#2E7D32]"
+      className="relative w-full min-h-[70vh] lg:min-h-[80vh] overflow-hidden bg-gradient-to-b from-[#1B4D1E] to-[#2E7D32]"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onFocus={() => setIsPaused(true)}
@@ -146,11 +146,9 @@ export function HeroSlideshow({ children }: HeroSlideshowProps) {
               }`}
             >
               <div
-                className={`relative w-full h-full transform transition-transform ease-out ${
-                  isActive && !prefersReducedMotion
-                    ? 'scale-[1.06] duration-[6000ms]'
-                    : 'scale-100 duration-1000'
-                } motion-reduce:transform-none`}
+                className={`relative w-full h-full ${
+                  isActive && !prefersReducedMotion ? 'animate-ken-burns' : ''
+                }`}
               >
                 <Image
                   src={slide.src}

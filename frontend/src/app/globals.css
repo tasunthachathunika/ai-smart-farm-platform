@@ -75,3 +75,20 @@
     font-family: var(--font-noto-sans), system-ui, sans-serif;
   }
 }
+
+
+/* Ken Burns slow zoom animation for hero slideshow */
+@keyframes ken-burns {
+  from { transform: scale(1); }
+  to   { transform: scale(1.06); }
+}
+
+.animate-ken-burns {
+  animation: ken-burns 6s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ken-burns {
+    animation: none;
+  }
+}
