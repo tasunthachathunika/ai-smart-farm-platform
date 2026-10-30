@@ -29,13 +29,13 @@ export const gpsCoordinatesSchema = z.object({
 });
 
 export const createPlotSchema = z.object({
-  fieldId: z.string().uuid().optional(),
+  fieldId: z.string().uuid().nullable().optional(),
   name: z.string().trim().min(2, 'Plot name must be at least 2 characters').max(255),
   district: z.string().trim().min(2, 'District is required for officer visibility').max(100),
   areaHa: z.number().positive('area_ha must be greater than 0'),
   gps: gpsCoordinatesSchema,
-  soilType: z.string().trim().max(100).optional(),
-  irrigationSource: z.string().trim().max(100).optional(),
+  soilType: z.string().trim().max(100).nullable().optional(),
+  irrigationSource: z.string().trim().max(100).nullable().optional(),
 });
 
 export const updatePlotSchema = z.object({
@@ -44,13 +44,13 @@ export const updatePlotSchema = z.object({
   district: z.string().trim().min(2).max(100).optional(),
   areaHa: z.number().positive().optional(),
   gps: gpsCoordinatesSchema.optional(),
-  soilType: z.string().trim().max(100).optional(),
-  irrigationSource: z.string().trim().max(100).optional(),
+  soilType: z.string().trim().max(100).nullable().optional(),
+  irrigationSource: z.string().trim().max(100).nullable().optional(),
 });
 
 export const plotQuerySchema = paginationQuerySchema.extend({
   district: z.string().trim().optional(),
-  fieldId: z.string().uuid().optional(),
+  fieldId: z.string().uuid().nullable().optional(),
 });
 
 // ==========================================

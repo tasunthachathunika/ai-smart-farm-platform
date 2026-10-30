@@ -605,6 +605,24 @@ describe('Plot Sharing, Revocation & Farmer Audit Trail Suite', () => {
       expect(actions).toContain('share_revoke');
     });
 
+    it('generates parameterized query with explicit UUID and text typecasts for farmer ID', async () => {
+      let capturedQuery = '';
+      let capturedParams: unknown[] = [];
+      jest.spyOn(pool, 'query').mockImplementation(async (sql: unknown, params: unknown) => {
+        capturedQuery = String(sql);
+        capturedParams = params as unknown[];
+        if (capturedQuery.includes('COUNT(*)')) {
+          return { rows: [{ count: '1' }], rowCount: 1 } as never;
+        }
+        return { rows: [], rowCount: 0 } as never;
+      });
+
+      await auditService.getFarmerAuditEvents(farmerA, {});
+      expect(capturedQuery).toContain('a.user_id = $1::uuid');
+      expect(capturedQuery).toContain("((a.metadata->>'farmerId') = $1::text)");
+      expect(capturedParams[0]).toBe(farmerA.id);
+    });
+
     it('rejects Admin from accessing farmer audit trail with 404 (Admin privacy boundary)', async () => {
       await expect(auditService.getFarmerAuditEvents(adminUser, {})).rejects.toThrow(NotFound);
     });
