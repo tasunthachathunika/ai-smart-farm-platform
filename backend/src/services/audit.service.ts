@@ -61,15 +61,15 @@ export class AuditService {
     // c) Actions on shared_plots referencing the farmer's plots
     // d) Metadata referencing the farmer's ID or plots
     conditions.push(`(
-      a.user_id = $${idx}
-      OR a.entity_id IN (SELECT id FROM plots WHERE farmer_id = $${idx})
-      OR (a.action = 'plot_viewed_by_officer' AND a.entity_id IN (SELECT id FROM plots WHERE farmer_id = $${idx}))
+      a.user_id = $${idx}::uuid
+      OR a.entity_id IN (SELECT id FROM plots WHERE farmer_id = $${idx}::uuid)
+      OR (a.action = 'plot_viewed_by_officer' AND a.entity_id IN (SELECT id FROM plots WHERE farmer_id = $${idx}::uuid))
       OR (a.entity_type = 'shared_plots' AND a.entity_id IN (
           SELECT sp.id FROM shared_plots sp
           JOIN plots p ON p.id = sp.plot_id
-          WHERE p.farmer_id = $${idx}
+          WHERE p.farmer_id = $${idx}::uuid
       ))
-      OR (a.metadata->>'farmerId' = $${idx})
+      OR ((a.metadata->>'farmerId') = $${idx}::text)
     )`);
     params.push(user.id);
     idx++;
