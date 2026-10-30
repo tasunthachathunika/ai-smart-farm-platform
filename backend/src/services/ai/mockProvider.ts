@@ -50,7 +50,7 @@ export class MockLLMProvider implements LLMProvider {
     }
 
     // Default dynamic mock response tailored to summary or visit-prep
-    if (options.systemPrompt.includes('visit_prep') || options.userPrompt.includes('visit-prep')) {
+    if (options.systemPrompt.includes('visit_prep') || options.systemPrompt.includes('"purpose"') || options.userPrompt.includes('visit-prep')) {
       const defaultVisitPrep = {
         purpose: 'Comprehensive plot inspection and review of recorded crop cycle progress.',
         timelineSummary:

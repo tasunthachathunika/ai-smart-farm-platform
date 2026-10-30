@@ -450,8 +450,8 @@ export class AIService {
     let activityLogs: SanitizedPlotData['activityLogs'] = [];
     if (isAllowed('activity_logs')) {
       const res = await pool.query<SanitizedPlotData['activityLogs'][0]>(
-        `SELECT id, log_type, log_date, notes
-         FROM farm_logs fl
+        `SELECT fl.id, fl.log_type, fl.log_date, fl.notes
+         FROM activity_logs fl
          JOIN crop_cycles cc ON cc.id = fl.cycle_id
          WHERE cc.plot_id = $1
          ORDER BY log_date DESC LIMIT 20;`,
@@ -464,8 +464,8 @@ export class AIService {
     let inputApplications: SanitizedPlotData['inputApplications'] = [];
     if (isAllowed('input_applications')) {
       const res = await pool.query<SanitizedPlotData['inputApplications'][0]>(
-        `SELECT id, input_type, name, quantity, unit, application_date
-         FROM inputs inp
+        `SELECT inp.id, inp.input_type, inp.name, inp.quantity, inp.unit, inp.application_date
+         FROM input_applications inp
          JOIN crop_cycles cc ON cc.id = inp.cycle_id
          WHERE cc.plot_id = $1
          ORDER BY application_date DESC LIMIT 20;`,
@@ -478,7 +478,7 @@ export class AIService {
     let harvests: SanitizedPlotData['harvests'] = [];
     if (isAllowed('harvests')) {
       const res = await pool.query<SanitizedPlotData['harvests'][0]>(
-        `SELECT id, harvest_date, quantity, unit, quality_grade
+        `SELECT h.id, h.harvest_date, h.quantity, h.unit, h.quality_grade
          FROM harvests h
          JOIN crop_cycles cc ON cc.id = h.cycle_id
          WHERE cc.plot_id = $1

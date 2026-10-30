@@ -131,7 +131,7 @@ describe('Responsible AI Service & Safety Pipeline Suite', () => {
       }
 
       // Activity logs
-      if (queryText.includes('FROM farm_logs fl')) {
+      if (queryText.includes('FROM activity_logs fl') || queryText.includes('FROM farm_logs fl')) {
         return {
           rows: [
             {
@@ -146,7 +146,7 @@ describe('Responsible AI Service & Safety Pipeline Suite', () => {
       }
 
       // Inputs
-      if (queryText.includes('FROM inputs inp')) {
+      if (queryText.includes('FROM input_applications inp') || queryText.includes('FROM inputs inp')) {
         return { rows: [], rowCount: 0 } as never;
       }
 
@@ -487,7 +487,7 @@ describe('Responsible AI Service & Safety Pipeline Suite', () => {
             rowCount: 1,
           } as never;
         }
-        if (queryText.includes('FROM farm_logs fl')) {
+        if (queryText.includes('FROM activity_logs fl') || queryText.includes('FROM farm_logs fl')) {
           return {
             rows: [
               {
@@ -567,7 +567,7 @@ describe('Responsible AI Service & Safety Pipeline Suite', () => {
         if (queryText.includes('FROM crop_cycles')) {
           return { rows: [], rowCount: 0 } as never;
         }
-        if (queryText.includes('FROM farm_logs fl')) {
+        if (queryText.includes('FROM activity_logs fl') || queryText.includes('FROM farm_logs fl')) {
           return { rows: [], rowCount: 0 } as never;
         }
         if (queryText.includes('INSERT INTO ai_analyses')) {
