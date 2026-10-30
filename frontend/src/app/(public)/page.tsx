@@ -23,7 +23,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { AIResultCard } from '@/components/ui/AIResultCard';
 import { LanguageSwitcher } from '@/components/shell/LanguageSwitcher';
-import { HeroSlideshow } from '@/components/landing/HeroSlideshow';
+import { HeroBackgroundSlider } from '@/components/landing/HeroBackgroundSlider';
 
 export default function LandingPage() {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
@@ -120,7 +120,7 @@ export default function LandingPage() {
 
       {/* 2. HERO SECTION */}
       <section className="relative">
-        <HeroSlideshow>
+        <HeroBackgroundSlider>
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/40 border border-white/25 text-xs font-semibold text-green-200 shadow-lg backdrop-blur-md">
               <span>🛡️ Hardware-Encrypted GPS Privacy &amp; Verified Extension Advisory</span>
@@ -159,7 +159,7 @@ export default function LandingPage() {
               </Link>
             </div>
           </div>
-        </HeroSlideshow>
+        </HeroBackgroundSlider>
       </section>
 
       {/* 3. TRUST STRIP */}
