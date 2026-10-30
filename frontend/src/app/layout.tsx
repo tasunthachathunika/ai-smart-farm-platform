@@ -1,28 +1,15 @@
 import type { Metadata, Viewport } from 'next';
-import { Noto_Sans, Noto_Sans_Sinhala, Noto_Sans_Tamil } from 'next/font/google';
+import '@fontsource/noto-sans/400.css';
+import '@fontsource/noto-sans/600.css';
+import '@fontsource/noto-sans/700.css';
+import '@fontsource/noto-sans-sinhala/400.css';
+import '@fontsource/noto-sans-sinhala/600.css';
+import '@fontsource/noto-sans-sinhala/700.css';
+import '@fontsource/noto-sans-tamil/400.css';
+import '@fontsource/noto-sans-tamil/600.css';
+import '@fontsource/noto-sans-tamil/700.css';
 import { I18nProvider } from '@/i18n';
 import './globals.css';
-
-const notoSans = Noto_Sans({
-  subsets: ['latin'],
-  weight: ['400', '600', '700'],
-  display: 'swap',
-  variable: '--font-noto-sans',
-});
-
-const notoSansSinhala = Noto_Sans_Sinhala({
-  subsets: ['sinhala'],
-  weight: ['400', '600', '700'],
-  display: 'swap',
-  variable: '--font-noto-sans-sinhala',
-});
-
-const notoSansTamil = Noto_Sans_Tamil({
-  subsets: ['tamil'],
-  weight: ['400', '600', '700'],
-  display: 'swap',
-  variable: '--font-noto-sans-tamil',
-});
 
 export const metadata: Metadata = {
   title: 'Goviya Plus — Smart Farm Platform',
@@ -42,10 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${notoSans.variable} ${notoSansSinhala.variable} ${notoSansTamil.variable}`}
-    >
+    <html lang="en">
       <body className="min-h-screen bg-sand-50 text-ink-900 font-sans antialiased">
         <I18nProvider>{children}</I18nProvider>
       </body>
