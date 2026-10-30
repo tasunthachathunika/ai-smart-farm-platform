@@ -9,6 +9,7 @@ import { ApiError } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
+import { BackButton } from '@/components/ui/BackButton';
 import { LanguageSwitcher } from '@/components/shell/LanguageSwitcher';
 import { useI18n } from '@/i18n';
 
@@ -104,8 +105,9 @@ function LoginFormContent() {
   return (
     <main className="min-h-screen bg-sand-50 text-ink-900 flex flex-col justify-center items-center px-4 py-8">
       <div className="w-full max-w-md space-y-6">
-        {/* Top bar with language switcher */}
-        <div className="flex justify-end">
+        {/* Top bar with back button & language switcher */}
+        <div className="flex items-center justify-between">
+          <BackButton href="/" variant="ghost" />
           <LanguageSwitcher />
         </div>
 

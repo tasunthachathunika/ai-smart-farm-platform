@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authController } from '../controllers/auth.controller';
 import { validate } from '../validators';
-import { registerSchema, loginSchema } from '../validators/auth.validator';
+import { registerSchema, loginSchema, updateProfileSchema } from '../validators/auth.validator';
 import { authenticate } from '../middleware/auth';
 import { loginRateLimiter } from '../middleware/rateLimiter';
 
@@ -24,5 +24,8 @@ router.post('/logout', authController.logout);
 
 // GET /api/auth/me (Protected route)
 router.get('/me', authenticate, authController.getMe);
+
+// PATCH /api/auth/profile (Protected route)
+router.patch('/profile', authenticate, validate(updateProfileSchema), authController.updateProfile);
 
 export const authRoutes = router;

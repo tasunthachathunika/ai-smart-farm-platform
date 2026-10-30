@@ -16,78 +16,52 @@ export async function seedDatabase(): Promise<void> {
   try {
     await client.query('BEGIN');
 
-    // Clean existing test data (respecting append-only trigger by temporarily disabling it for re-seed)
-    logger.info('Clearing old seed data...');
-    await client.query('DROP TRIGGER IF EXISTS trg_audit_logs_immutable ON audit_logs;');
-    await client.query('TRUNCATE TABLE audit_logs CASCADE;');
-    await client.query('TRUNCATE TABLE users CASCADE;'); // cascades to plots, shared_plots, cycles, etc.
+    // 2. Hash default password with Argon2id (same configuration as auth.service)
+    const passwordHash = await argon2.hash(DEMO_PASSWORD, {
+      type: argon2.argon2id,
+    });
 
-    // Re-create immutable trigger on audit_logs
-    await client.query(`
-      CREATE TRIGGER trg_audit_logs_immutable
-      BEFORE UPDATE OR DELETE ON audit_logs
-      FOR EACH ROW
-      EXECUTE FUNCTION prevent_audit_logs_modification();
-    `);
+    // Helper for idempotent user upserting
+    const upsertUser = async (
+      email: string,
+      fullName: string,
+      phone: string,
+      role: 'admin' | 'officer' | 'farmer',
+      isVerified: boolean,
+    ): Promise<{ id: string }> => {
+      const {
+        rows: [user],
+      } = await client.query<{ id: string }>(
+        `INSERT INTO users (email, password_hash, full_name, phone, role, is_verified, failed_login_attempts, locked_until)
+         VALUES ($1, $2, $3, $4, $5, $6, 0, NULL)
+         ON CONFLICT (email) DO UPDATE SET
+           password_hash = EXCLUDED.password_hash,
+           full_name = EXCLUDED.full_name,
+           phone = EXCLUDED.phone,
+           role = EXCLUDED.role,
+           is_verified = EXCLUDED.is_verified,
+           failed_login_attempts = 0,
+           locked_until = NULL,
+           updated_at = NOW()
+         RETURNING id;`,
+        [email, passwordHash, fullName, phone, role, isVerified],
+      );
+      return user;
+    };
 
-    // 2. Hash default password with Argon2
-    const passwordHash = await argon2.hash(DEMO_PASSWORD);
+    // 3. Seed Users (1 Admin, 2 Verified Officers, 1 Pending/Unverified Officer, 2 Farmers)
+    logger.info('Seeding/upserting demo users...');
+    const admin = await upsertUser('admin@goviya.lk', 'Nalaka Admin', '+94771000001', 'admin', true);
+    const officer1 = await upsertUser('aruna.officer@goviya.lk', 'Aruna Wickramasinghe', '+94771000002', 'officer', true);
+    const officer2 = await upsertUser('chathuri.officer@goviya.lk', 'Chathuri Jayasuriya', '+94771000003', 'officer', true);
+    const unverifiedOfficer = await upsertUser('kavinda.officer@goviya.lk', 'Kavinda Senanayake', '+94771000004', 'officer', false);
+    const farmer1 = await upsertUser('sunil.farmer@goviya.lk', 'Sunil Bandara', '+94771000005', 'farmer', true);
+    const farmer2 = await upsertUser('anula.farmer@goviya.lk', 'Anula Kumari', '+94771000006', 'farmer', true);
 
-    // 3. Seed Users
-    logger.info('Seeding users...');
-    // 1 Admin
-    const {
-      rows: [admin],
-    } = await client.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, full_name, phone, role, is_verified)
-       VALUES ($1, $2, $3, $4, 'admin', true) RETURNING id;`,
-      ['admin@goviya.lk', passwordHash, 'Nalaka Admin', '+94771000001'],
-    );
+    // 4. Clean demo plots belonging to seeded demo farmers to make child seeding idempotent
+    await client.query('DELETE FROM plots WHERE farmer_id IN ($1, $2);', [farmer1.id, farmer2.id]);
 
-    // 2 Verified Officers
-    const {
-      rows: [officer1],
-    } = await client.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, full_name, phone, role, is_verified)
-       VALUES ($1, $2, $3, $4, 'officer', true) RETURNING id;`,
-      ['aruna.officer@goviya.lk', passwordHash, 'Aruna Wickramasinghe', '+94771000002'],
-    );
-
-    const {
-      rows: [officer2],
-    } = await client.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, full_name, phone, role, is_verified)
-       VALUES ($1, $2, $3, $4, 'officer', true) RETURNING id;`,
-      ['chathuri.officer@goviya.lk', passwordHash, 'Chathuri Jayasuriya', '+94771000003'],
-    );
-
-    // 1 Unverified Officer
-    const {
-      rows: [unverifiedOfficer],
-    } = await client.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, full_name, phone, role, is_verified)
-       VALUES ($1, $2, $3, $4, 'officer', false) RETURNING id;`,
-      ['kavinda.officer@goviya.lk', passwordHash, 'Kavinda Senanayake', '+94771000004'],
-    );
-
-    // 2 Farmers
-    const {
-      rows: [farmer1],
-    } = await client.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, full_name, phone, role, is_verified)
-       VALUES ($1, $2, $3, $4, 'farmer', true) RETURNING id;`,
-      ['sunil.farmer@goviya.lk', passwordHash, 'Sunil Bandara', '+94771000005'],
-    );
-
-    const {
-      rows: [farmer2],
-    } = await client.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, full_name, phone, role, is_verified)
-       VALUES ($1, $2, $3, $4, 'farmer', true) RETURNING id;`,
-      ['anula.farmer@goviya.lk', passwordHash, 'Anula Kumari', '+94771000006'],
-    );
-
-    // 4. Seed Plots with AES-256-GCM encrypted GPS coordinates
+    // 5. Seed Plots with AES-256-GCM encrypted GPS coordinates
     logger.info('Seeding plots...');
     const gps1 = encryptGps(JSON.stringify({ lat: 7.4863, lng: 80.3623 }));
     const {
@@ -144,7 +118,7 @@ export async function seedDatabase(): Promise<void> {
       ],
     );
 
-    // 5. Seed 1 Active Share (Farmer 1 shares Plot 1 with Verified Officer 1)
+    // 6. Seed 1 Active Share (Farmer 1 shares Plot 1 with Verified Officer 1)
     logger.info('Seeding active plot share...');
     const {
       rows: [share1],
@@ -155,7 +129,7 @@ export async function seedDatabase(): Promise<void> {
       [plot1.id, officer1.id],
     );
 
-    // 6. Seed Crop Cycles
+    // 7. Seed Crop Cycles
     logger.info('Seeding crop cycles...');
     // Completed cycle with harvest
     const {
@@ -166,7 +140,7 @@ export async function seedDatabase(): Promise<void> {
       [plot1.id, 'Bg 358 White Samba', 'DOA Bg 358', '2026-05-10', '2026-09-15', 4800.0],
     );
 
-    // Active cycle with current logs and inputs
+    // Active cycle with current logs and input_applications
     const {
       rows: [cycle2],
     } = await client.query<{ id: string }>(
@@ -184,10 +158,10 @@ export async function seedDatabase(): Promise<void> {
       [plot3.id, 'MI-2 Green Chili', 'Maha Illuppallama 2', '2026-08-15', 1500.0],
     );
 
-    // 7. Seed Farm Logs
-    logger.info('Seeding farm logs...');
+    // 8. Seed Activity Logs
+    logger.info('Seeding activity logs...');
     await client.query(
-      `INSERT INTO farm_logs (cycle_id, log_type, log_date, notes) VALUES
+      `INSERT INTO activity_logs (cycle_id, log_type, log_date, notes) VALUES
        ($1, 'observation', '2026-10-05', 'Land preparation completed and seedlings transplanted evenly across 2.45 hectares.'),
        ($1, 'irrigation', '2026-10-12', 'Maintained 5cm water level across all liyaddas from canal inflow.'),
        ($1, 'disease', '2026-10-20', 'Routine inspection: no signs of leaf blast or brown planthopper pest damage.'),
@@ -195,17 +169,17 @@ export async function seedDatabase(): Promise<void> {
       [cycle2.id, cycle3.id],
     );
 
-    // 8. Seed Inputs
-    logger.info('Seeding inputs...');
+    // 9. Seed input_applications
+    logger.info('Seeding input_applications...');
     await client.query(
-      `INSERT INTO inputs (cycle_id, input_type, name, quantity, unit, application_date, cost) VALUES
+      `INSERT INTO input_applications (cycle_id, input_type, name, quantity, unit, application_date, cost) VALUES
        ($1, 'seed', 'Certified At 362 Seed Paddy', 100.00, 'kg', '2026-10-01', 22000.00),
        ($1, 'fertilizer', 'Triple Super Phosphate (TSP)', 50.00, 'kg', '2026-10-06', 12500.00),
        ($1, 'organic_matter', 'Compost & Paddy Husk Ash', 500.00, 'kg', '2026-10-10', 8000.00);`,
       [cycle2.id],
     );
 
-    // 9. Seed Harvests (for completed Cycle 1)
+    // 10. Seed Harvests (for completed Cycle 1)
     logger.info('Seeding harvests...');
     await client.query(
       `INSERT INTO harvests (cycle_id, harvest_date, quantity, unit, quality_grade, revenue, notes) VALUES
@@ -213,7 +187,7 @@ export async function seedDatabase(): Promise<void> {
       [cycle1.id],
     );
 
-    // 10. Seed Audit Log (Append-only)
+    // 11. Seed Audit Log (Append-only)
     logger.info('Seeding audit logs...');
     await client.query(
       `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, metadata, ip_address, user_agent)

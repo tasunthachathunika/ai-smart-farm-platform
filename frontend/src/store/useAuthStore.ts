@@ -12,6 +12,7 @@ interface AuthState {
   fetchMe: () => Promise<User | null>;
   login: (credentials: LoginCredentials) => Promise<User>;
   register: (credentials: RegisterCredentials) => Promise<User>;
+  updateProfile: (data: { fullName?: string; phone?: string | null }) => Promise<User>;
   logout: () => Promise<void>;
   reset: () => void;
 }
@@ -77,6 +78,27 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({
         user,
         isAuthenticated: true,
+        isLoading: false,
+        error: null,
+      });
+      return user;
+    } catch (err) {
+      const apiErr = normalizeError(err);
+      set({
+        error: apiErr.message,
+        isLoading: false,
+      });
+      throw apiErr;
+    }
+  },
+
+  updateProfile: async (data: { fullName?: string; phone?: string | null }): Promise<User> => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await api.patch<{ user: User; message: string }>('/auth/profile', data);
+      const user = response.data.user;
+      set({
+        user,
         isLoading: false,
         error: null,
       });

@@ -6,7 +6,8 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface ModalProps {
-  isOpen: boolean;
+  isOpen?: boolean;
+  open?: boolean;
   onClose: () => void;
   title: string;
   description?: string;
@@ -17,6 +18,7 @@ export interface ModalProps {
 
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
+  open,
   onClose,
   title,
   description,
@@ -24,29 +26,39 @@ export const Modal: React.FC<ModalProps> = ({
   className,
   maxWidth = 'md',
 }) => {
+  const isModalOpen = Boolean(open !== undefined ? open : isOpen);
+
   const titleId = useId();
   const descId = useId();
   const modalRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedElement = useRef<HTMLElement | null>(null);
+  const backdropMouseDownTarget = useRef<EventTarget | null>(null);
 
-  // Esc key and scroll lock
+  // Keep onClose in a ref to avoid re-triggering focus-trap effects on parent re-renders
+  const onCloseRef = useRef(onClose);
   useEffect(() => {
-    if (!isOpen) return;
+    onCloseRef.current = onClose;
+  });
+
+  // Esc key, focus-trap, and body scroll lock
+  useEffect(() => {
+    if (!isModalOpen) return;
 
     previouslyFocusedElement.current = document.activeElement as HTMLElement;
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Esc closes only on keydown Escape
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
 
       if (e.key === 'Tab' && modalRef.current) {
         const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
         );
         if (focusableElements.length === 0) return;
 
@@ -69,16 +81,23 @@ export const Modal: React.FC<ModalProps> = ({
 
     document.addEventListener('keydown', handleKeyDown);
 
-    // Initial focus on the modal container or first interactive element
+    // Initial focus to the first input/autofocus ONLY when the modal opens, never on re-render
     const timeoutId = setTimeout(() => {
       if (modalRef.current) {
-        const firstFocusable = modalRef.current.querySelector<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        const preferredFocus = modalRef.current.querySelector<HTMLElement>(
+          '[autofocus], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])'
         );
-        if (firstFocusable) {
-          firstFocusable.focus();
+        if (preferredFocus) {
+          preferredFocus.focus();
         } else {
-          modalRef.current.focus();
+          const firstFocusable = modalRef.current.querySelector<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          );
+          if (firstFocusable) {
+            firstFocusable.focus();
+          } else {
+            modalRef.current.focus();
+          }
         }
       }
     }, 50);
@@ -91,9 +110,9 @@ export const Modal: React.FC<ModalProps> = ({
         previouslyFocusedElement.current.focus();
       }
     };
-  }, [isOpen, onClose]);
+  }, [isModalOpen]);
 
-  if (!isOpen || typeof document === 'undefined') {
+  if (!isModalOpen || typeof document === 'undefined') {
     return null;
   }
 
@@ -107,9 +126,16 @@ export const Modal: React.FC<ModalProps> = ({
   const modalContent = (
     <div
       className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-ink-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+      onMouseDown={(e) => {
+        backdropMouseDownTarget.current = e.target;
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
+        // Backdrop closes only when mousedown AND click target === the backdrop element itself
+        if (
+          e.target === e.currentTarget &&
+          backdropMouseDownTarget.current === e.currentTarget
+        ) {
+          onCloseRef.current();
         }
       }}
       role="presentation"
@@ -121,6 +147,8 @@ export const Modal: React.FC<ModalProps> = ({
         aria-labelledby={titleId}
         aria-describedby={description ? descId : undefined}
         tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
         className={cn(
           'w-full bg-white shadow-xl focus:outline-none transition-all flex flex-col',
           // Mobile: bottom sheet
